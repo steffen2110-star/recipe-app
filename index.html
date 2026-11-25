@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Kitchen</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 0 auto; padding: 12px; font-size: 18px; }
+  button { font-size: 18px; padding: 10px 14px; margin: 4px 4px 4px 0; }
+  input, textarea, select { font-size: 18px; width: 100%; box-sizing: border-box; padding: 8px; margin: 4px 0; }
+  input[type=checkbox] { width: auto; margin: 0 8px 0 0; }
+  .card { border: 1px solid #ccc; border-radius: 8px; padding: 10px; margin: 8px 0; }
+  .warn { border: 2px solid #c00; background: #fff4f4; }
+  .notice { border: 1px solid #c90; background: #fffbea; border-radius: 8px; padding: 8px; font-size: 15px; }
+  .small { color: #555; font-size: 15px; }
+  .alert { color: #b00; font-weight: bold; font-size: 15px; }
+  .done { text-decoration: line-through; color: #888; }
+  .cooked { border: 2px solid #2a7; background: #f2fff7; }
+  .sync { font-size: 15px; background: #f3f3f3; padding: 8px; border-radius: 6px; margin-bottom: 8px; }
+  .sync.err { background: #fff4f4; color: #b00; }
+  .sync button { font-size: 15px; padding: 6px 10px; }
+  nav { margin-bottom: 8px; }
+  nav button.active { background: #222; color: #fff; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row > * { flex: 1 1 140px; }
+  .swipe-card { border: 1px solid #ccc; border-radius: 12px; padding: 16px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.1); touch-action: none; user-select: none; }
+  .swipe-card ul { padding-left: 20px; }
+  .hint { font-weight: bold; min-height: 24px; }
+  .swipe-wrap { margin: 12px 0; }
+  .check-grid label { display: block; margin: 6px 0; }
+</style>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+</head>
+<body>
+<h1>My Kitchen</h1>
+<div id="sync" class="sync">Starting…</div>
+<nav>
+  <button id="tabR" onclick="tab('recipes')">Recipes</button>
+  <button id="tabI" onclick="tab('inventory')">Inventory</button>
+  <button id="tabP" onclick="tab('plan')">Plan</button>
+  <button id="tabS" onclick="tab('swipe')">Swipe</button>
+  <button id="tabF" onclick="tab('profile')">Profile</button>
+</nav>
+<div id="app"></div>
+<input type="file" id="fileInput" accept=".pdf,.docx,.txt" style="display:none" onchange="importFile(this)">
+<script>
+// ---- Google Drive settings ----
+const CLIENT_ID = "792254125432-ha71mtoqv654o7ikd33tug8qgee0142f.apps.googleusercontent.com";
+const SCOPE = "https://www.googleapis.com/auth/drive.file";
+const SYNC_FILE = "my-kitchen.json";
+
+const RKEY = "recipes_v1";
+const IKEY = "inventory_v1";
+const PKEY = "plan_v1";
+const SKEY = "shop_v1";
+const LKEY = "lastcook_v1";
+const SWKEY = "swipe_v1";
+const PRKEY = "profile_v1";
+const UPDATED_KEY = "kitchen_updated_v1";
+const CONNECTED_KEY = "drive_connected_v1";
+const DRIVE_ID_KEY = "drive_file_id_v1";
+
+// Rough starting defaults in days. Estimates only; to be replaced with USDA FoodKeeper values later.
+const DEFAULT_DAYS = { fridge: 7, freezer: 90, pantry: 30 };
+const MEALS = ["breakfast", "lunch", "dinner", "snack"];
+
+// Every spelling we recognise, mapped to one internal unit key
+const UNITS = {
+  g: "g", gram: "g", grams: "g",
+  kg: "kg", kilogram: "kg", kilograms: "kg",
+  oz: "oz", ounce: "oz", ounces: "oz",
+  lb: "lb", lbs: "lb", pound: "lb", pounds: "lb",
+  ml: "ml", milliliter: "ml", milliliters: "ml",
+  l: "l", liter: "l", liters: "l", litre: "l", litres: "l",
+  tsp: "tsp", teaspoon: "tsp", teaspoons: "tsp",
+  tbsp: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp",
+  cup: "cup", cups: "cup", c: "cup",
+  floz: "floz", "fl oz": "floz", "fl.oz": "floz",
+  pint: "pint", pints: "pint", pt: "pint",
+  quart: "quart", quarts: "quart", qt: "quart",
+  gallon: "gallon", gallons: "gallon", gal: "gallon",
+  clove: "clove", cloves: "clove",
+  can: "can", cans: "can",
+  bag: "bag", bags: "bag",
+  pack: "pack", packs: "pack",
+  bottle: "bottle", bottles: "bottle",
+  bunch: "bunch", bunches: "bunch",
+  pinch: "pinch",
+  pc: "count", pcs: "count", piece: "count", pieces: "count", whole: "count", each: "count", count: "count"
+};
+
+// Dropdown choices for the inventory form: [stored key, label]
+const UNIT_OPTIONS = [
+  ["count", "pcs (count)"],
+  ["g", "g (gram)"],
+  ["kg", "kg (kilogram)"],
+  ["oz", "oz (ounce, weight)"],
+  ["lb", "lb (pound)"],
+  ["ml", "ml (milliliter)"],
+  ["l", "l (liter)"],
+  ["tsp", "tsp (teaspoon)"],
+  ["tbsp", "tbsp (tablespoon)"],
+  ["cup", "cup"],
+  ["floz", "fl oz (fluid ounce)"],
+  ["pint", "pint"],
+  ["quart", "quart"],
+  ["gallon", "gallon"],
+  ["clove", "clove"],
+  ["can", "can"],
+  ["bottle", "bottle"],
+  ["bag", "bag"],
+  ["pack", "pack"],
+  ["bunch", "bunch"],
+  ["pinch", "pinch"]
+];
+
+// Conversion factors to base units (grams for mass, milliliters for volume)
+const MASS = { g: 1, kg: 1000, oz: 28.35, lb: 453.6 };
+const VOL = { ml: 1, l: 1000, tsp: 4.93, tbsp: 14.79, cup: 236.6, floz: 29.57, pint: 473.2, quart: 946.4, gallon: 3785.4 };
+
+// Approximate grams per US cup, used to convert between cups and grams.
+const DENSITY = {
+  "flour": 125, "all-purpose flour": 125, "bread flour": 127,
+  "sugar": 200, "granulated sugar": 200, "brown sugar": 213, "powdered sugar": 120,
+  "butter": 227, "milk": 245, "water": 237, "yogurt": 245,
+  "oil": 218, "olive oil": 216,
+  "rice": 185, "oats": 90, "honey": 340, "cocoa powder": 85,
+  "cheese": 113, "cornstarch": 128, "salt": 288
+};
+
+// Approximate calories per 100 g (USDA-style reference values, rounded).
+const KCAL_PER_100G = {
+  "all-purpose flour": 364, "flour": 364, "sugar": 387, "brown sugar": 380, "powdered sugar": 389,
+  "butter": 717, "milk": 61, "whole milk": 61, "yogurt": 61, "cream": 340, "heavy cream": 340,
+  "cheese": 403, "cheddar": 403, "parmesan": 431, "mozzarella": 300,
+  "egg": 143, "eggs": 143,
+  "vegetable oil": 884, "oil": 884, "olive oil": 884,
+  "rice": 365, "oats": 389, "pasta": 371, "spaghetti": 371, "bread": 265,
+  "honey": 304, "maple syrup": 260, "cocoa powder": 228, "chocolate chips": 479,
+  "cornstarch": 381, "peanut butter": 588, "almond": 579, "walnut": 654, "almond flour": 571,
+  "chicken breast": 165, "chicken": 239, "ground beef": 250, "beef": 250, "bacon": 541,
+  "salmon": 208, "tuna": 132, "shrimp": 85, "tofu": 76,
+  "potato": 77, "onion": 40, "tomato": 18, "carrot": 41, "garlic": 149, "spinach": 23,
+  "broccoli": 34, "bell pepper": 31, "lettuce": 15, "cucumber": 15, "mushroom": 22,
+  "banana": 89, "apple": 52, "lemon juice": 22, "lemon": 29,
+  "soy sauce": 53, "ketchup": 112, "mayonnaise": 680, "tahini": 595,
+  "water": 0, "salt": 0, "black pepper": 251, "cinnamon": 247
+};
+// Approximate grams per single whole item, used when an ingredient is counted (e.g. "2 eggs")
+const GRAMS_PER_COUNT = {
+  "egg": 50, "banana": 118, "apple": 182, "onion": 110, "potato": 170,
+  "tomato": 123, "carrot": 61, "garlic clove": 3, "clove": 3, "lemon": 58, "bell pepper": 119
+};
+
+// FDA major allergens, with ingredient words that suggest each one
+const ALLERGENS = [
+  { key: "milk", label: "Milk", words: ["milk", "butter", "cheese", "cream", "yogurt", "yoghurt", "whey", "casein", "ghee", "parmesan", "mozzarella", "cheddar"] },
+  { key: "egg", label: "Egg", words: ["egg", "eggs", "mayonnaise", "meringue"] },
+  { key: "fish", label: "Fish", words: ["fish", "salmon", "tuna", "cod", "tilapia", "anchovy", "anchovies", "sardine", "trout", "halibut"] },
+  { key: "shellfish", label: "Shellfish", words: ["shrimp", "prawn", "crab", "lobster", "scallop", "clam", "mussel", "oyster"] },
+  { key: "treenut", label: "Tree nuts", words: ["almond", "walnut", "pecan", "cashew", "pistachio", "hazelnut", "macadamia", "pine nut"] },
+  { key: "peanut", label: "Peanuts", words: ["peanut"] },
+  { key: "wheat", label: "Wheat", words: ["flour", "wheat", "bread", "pasta", "noodle", "couscous", "breadcrumb", "semolina"] },
+  { key: "soy", label: "Soy", words: ["soy", "tofu", "edamame", "miso", "tempeh"] },
+  { key: "sesame", label: "Sesame", words: ["sesame", "tahini"] }
+];
+
+// ---- State ----
+let recipes = JSON.parse(localStorage.getItem(RKEY) || "[]");
+let inventory = JSON.parse(localStorage.getItem(IKEY) || "[]");
+let plan = JSON.parse(localStorage.getItem(PKEY) || "[]");
+let shop = JSON.parse(localStorage.getItem(SKEY) || '{"checked":{},"manual":[]}');
+let lastCook = JSON.parse(localStorage.getItem(LKEY) || "null");
+let swipe = JSON.parse(localStorage.getItem(SWKEY) || '{"liked":[],"passed":[]}');
+let profile = { defaultServings: 4, allergens: [], showCalories: true, ...JSON.parse(localStorage.getItem(PRKEY) || "{}") };
+let tabName = "recipes";
+let view = { name: "list", maxMinutes: 0 };
+let planDraft = { date: isoDate(new Date()), meal: "dinner", recipeId: "", servings: "", from: isoDate(new Date()), to: addDays(6), manual: "" };
+let shopResult = null;
+
+// ---- Sync state ----
+let tokenClient = null, accessToken = null, tokenExpiry = 0, pendingToken = null;
+let driveFileId = localStorage.getItem(DRIVE_ID_KEY) || null;
+let syncBusy = false, syncQueued = false, localDirty = false, syncTimer = null;
+
+// ---- Save (every save marks the data as changed and schedules a Drive sync) ----
+function save() { localStorage.setItem(RKEY, JSON.stringify(recipes)); changed(); }
+function saveInventory() { localStorage.setItem(IKEY, JSON.stringify(inventory)); changed(); }
+function savePlan() { localStorage.setItem(PKEY, JSON.stringify(plan)); changed(); }
+function saveShop() { localStorage.setItem(SKEY, JSON.stringify(shop)); changed(); }
+function saveSwipe() { localStorage.setItem(SWKEY, JSON.stringify(swipe)); changed(); }
+function saveProfile() { localStorage.setItem(PRKEY, JSON.stringify(profile)); changed(); }
+
+function changed() {
+  localStorage.setItem(UPDATED_KEY, String(Date.now()));
+  localDirty = true;
+  scheduleSync();
+}
+
+// ---- Helpers ----
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function isoDate(d) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return isoDate(d); }
+function daysUntil(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const target = new Date(y, m - 1, d);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.round((target - today) / 86400000);
+}
+function niceDate(s) {
+  const [y, m, d] = s.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+}
+
+function parseQty(s) {
+  const m = s.match(/^\s*(\d+\s+\d+\/\d+|\d+\/\d+|\d+(\.\d+)?)/);
+  if (!m) return null;
+  const t = m[1].trim();
+  let v;
+  if (t.includes(" ")) { const [w, f] = t.split(/\s+/); const [a, b] = f.split("/"); v = +w + a / b; }
+  else if (t.includes("/")) { const [a, b] = t.split("/"); v = a / b; }
+  else v = parseFloat(t);
+  return { v, len: m[0].length };
+}
+function fmt(n) { return String(Math.round(n * 100) / 100); }
+function scaleLine(line, factor) {
+  const q = parseQty(line);
+  if (!q) return line;
+  return fmt(q.v * factor) + line.slice(q.len);
+}
+
+// Splits "1 1/2 cups all-purpose flour, sifted" into qty, unit and name.
+function parseIng(line) {
+  const q = parseQty(line);
+  if (!q) return { qty: null, unit: "count", name: "" };
+  let rest = line.slice(q.len).trim();
+  const words = rest.split(/\s+/);
+  let unit = "count";
+  const two = (words[0] + " " + (words[1] || "")).toLowerCase().replace(/\.$/, "");
+  if (UNITS[two] && words[1]) { unit = UNITS[two]; rest = words.slice(2).join(" "); }
+  else {
+    const one = (words[0] || "").toLowerCase().replace(/\.$/, "");
+    if (UNITS[one]) { unit = UNITS[one]; rest = words.slice(1).join(" "); }
+  }
+  rest = rest.trim().replace(/^of\s+/i, "").replace(/\(.*?\)/g, "").split(",")[0].trim().toLowerCase();
+  return { qty: q.v, unit, name: rest };
+}
+function normUnit(u) {
+  const x = (u || "").trim().toLowerCase().replace(/\.$/, "");
+  if (!x) return "count";
+  return UNITS[x] || x;
+}
+function unitLabel(key) {
+  const o = UNIT_OPTIONS.find(([v]) => v === key);
+  return o ? o[1].split(" ")[0] : (key || "");
+}
+function kindOf(unit) {
+  if (MASS[unit]) return { kind: "mass", factor: MASS[unit] };
+  if (VOL[unit]) return { kind: "vol", factor: VOL[unit] };
+  return { kind: unit, factor: 1 };
+}
+function namesMatch(a, b) {
+  a = a.toLowerCase().trim(); b = b.toLowerCase().trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  return Math.min(a.length, b.length) >= 3 && (a.includes(b) || b.includes(a));
+}
+
+// Longest matching key wins, and plurals ("eggs") match too.
+function lookup(name, table) {
+  const n = (name || "").toLowerCase();
+  let best = null, bestLen = 0;
+  for (const [k, v] of Object.entries(table)) {
+    if (k.length > bestLen && new RegExp("\\b" + k + "s?\\b").test(n)) { best = v; bestLen = k.length; }
+  }
+  return best;
+}
+function gramsPerCup(name) { return lookup(name, DENSITY); }
+
+function normalizeNeed(qty, unit, name) {
+  const k = kindOf(unit);
+  if (k.kind === "vol") {
+    const d = gramsPerCup(name);
+    if (d) return { kind: "mass", amount: qty * k.factor / 236.6 * d };
+  }
+  return { kind: k.kind, amount: qty * k.factor };
+}
+
+function amountIn(wantKind, qty, unit, name) {
+  const k = kindOf(unit);
+  if (k.kind === wantKind) return qty * k.factor;
+  const d = gramsPerCup(name);
+  if (!d) return null;
+  if (wantKind === "mass" && k.kind === "vol") return qty * k.factor / 236.6 * d;
+  if (wantKind === "vol" && k.kind === "mass") return qty * k.factor / d * 236.6;
+  return null;
+}
+
+function fmtAmount(kind, base) {
+  if (kind === "mass") return base >= 1000 ? fmt(base / 1000) + " kg" : Math.round(base) + " g";
+  if (kind === "vol") return base >= 1000 ? fmt(base / 1000) + " l" : Math.round(base) + " ml";
+  if (kind === "count") return fmt(base);
+  return fmt(base) + " " + kind;
+}
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+// ---- Google Drive sync ----
+function isConnected() { return !!localStorage.getItem(CONNECTED_KEY); }
+function localUpdated() { return Number(localStorage.getItem(UPDATED_KEY) || 0); }
+function hasLocalData() { return recipes.length || inventory.length || plan.length; }
+function timeNow() { return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+
+function setSyncStatus(msg, isErr) {
+  const el = document.getElementById("sync");
+  if (!el) return;
+  el.className = isErr ? "sync err" : "sync";
+  const buttons = isConnected()
+    ? `<button onclick="syncNow()">Sync now</button> <button onclick="connect()">Sign in again</button> <button onclick="disconnect()">Disconnect</button>`
+    : `<button onclick="connect()">Connect Google Drive</button>`;
+  el.innerHTML = `<span>${esc(msg)}</span><div>${buttons}</div>`;
+}
+
+// Loads the Google sign-in library and sets up the token client.
+function initAuth() {
+  if (typeof google === "undefined" || !google.accounts) {
+    setSyncStatus("Google sign-in did not load. Check your internet connection and reload.", true);
+    return false;
+  }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: SCOPE,
+    callback: r => {
+      const p = pendingToken; pendingToken = null;
+      if (r.error) { if (p) p.reject(new Error(r.error)); return; }
+      accessToken = r.access_token;
+      tokenExpiry = Date.now() + (Number(r.expires_in) || 3600) * 1000 - 60000;
+      if (p) p.resolve();
+    },
+    error_callback: err => {
+      const p = pendingToken; pendingToken = null;
+      if (p) p.reject(new Error(err.type || "sign-in was cancelled"));
+    }
+  });
+  return true;
+}
+
+// Returns a valid token. interactive=true may show the Google sign-in popup.
+function getToken(interactive) {
+  if (accessToken && Date.now() < tokenExpiry) return Promise.resolve();
+  if (!tokenClient) return Promise.reject(new Error("Google sign-in is not ready"));
+  return new Promise((resolve, reject) => {
+    pendingToken = { resolve, reject };
+    tokenClient.requestAccessToken({ prompt: interactive ? "" : "none" });
+  });
+}
+
+async function connect() {
+  if (CLIENT_ID.startsWith("PASTE")) {
+    return alert("Paste your Client ID into the code first (see the CLIENT_ID line near the top).");
+  }
+  if (!tokenClient && !initAuth()) return;
+  try {
+    await getToken(true);
+    localStorage.setItem(CONNECTED_KEY, "1");
+    await syncNow();
+  } catch (e) {
+    setSyncStatus("Sign-in failed: " + e.message, true);
+  }
+}
+
+function disconnect() {
+  localStorage.removeItem(CONNECTED_KEY);
+  accessToken = null;
+  clearTimeout(syncTimer);
+  setSyncStatus("Disconnected. Your recipes stay on this device.");
+}
+
+async function driveFetch(url, opts = {}) {
+  await getToken(false);
+  const headers = { Authorization: "Bearer " + accessToken, ...(opts.headers || {}) };
+  const r = await fetch(url, { ...opts, headers });
+  if (r.status === 401) { accessToken = null; throw new Error("sign-in expired, tap Sign in again"); }
+  return r;
+}
+
+function forgetFileId() {
+  driveFileId = null;
+  localStorage.removeItem(DRIVE_ID_KEY);
+}
+
+async function downloadSnapshot() {
+  if (!driveFileId) {
+    const q = encodeURIComponent(`name='${SYNC_FILE}' and trashed=false`);
+    const r = await driveFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`);
+    if (!r.ok) throw new Error("Drive search failed (" + r.status + ")");
+    const d = await r.json();
+    if (!d.files || !d.files.length) return null;
+    driveFileId = d.files[0].id;
+    localStorage.setItem(DRIVE_ID_KEY, driveFileId);
+  }
+  const r = await driveFetch(`https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`);
+  if (r.status === 404) { forgetFileId(); return null; }
+  if (!r.ok) throw new Error("download failed (" + r.status + ")");
+  return await r.json();
+}
+
+async function uploadSnapshot(snap) {
+  const body = JSON.stringify(snap);
+  if (driveFileId) {
+    const r = await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=media`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body
+    });
+    if (r.status === 404) { forgetFileId(); return uploadSnapshot(snap); }
+    if (!r.ok) throw new Error("upload failed (" + r.status + ")");
+    return;
+  }
+  const boundary = "kitchen" + Date.now();
+  const meta = JSON.stringify({ name: SYNC_FILE, mimeType: "application/json" });
+  const multi = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n` +
+    `--${boundary}\r\nContent-Type: application/json\r\n\r\n${body}\r\n--${boundary}--`;
+  const r = await driveFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", {
+    method: "POST",
+    headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+    body: multi
+  });
+  if (!r.ok) throw new Error("create failed (" + r.status + ")");
+  const d = await r.json();
+  driveFileId = d.id;
+  localStorage.setItem(DRIVE_ID_KEY, driveFileId);
+}
+
+function snapshot() {
+  return { version: 1, updatedAt: localUpdated(), recipes, inventory, plan, shop, swipe, profile };
+}
+
+// Replaces this device's data with the data from Drive. Does not trigger another upload.
+function applySnapshot(s) {
+  recipes = s.recipes || [];
+  inventory = s.inventory || [];
+  plan = s.plan || [];
+  shop = s.shop || { checked: {}, manual: [] };
+  swipe = s.swipe || { liked: [], passed: [] };
+  profile = { defaultServings: 4, allergens: [], showCalories: true, ...(s.profile || {}) };
+  localStorage.setItem(RKEY, JSON.stringify(recipes));
+  localStorage.setItem(IKEY, JSON.stringify(inventory));
+  localStorage.setItem(PKEY, JSON.stringify(plan));
+  localStorage.setItem(SKEY, JSON.stringify(shop));
+  localStorage.setItem(SWKEY, JSON.stringify(swipe));
+  localStorage.setItem(PRKEY, JSON.stringify(profile));
+  localStorage.setItem(UPDATED_KEY, String(s.updatedAt || 0));
+}
+
+// Pulls newer data from Drive, or pushes local changes. The most recently changed copy wins.
+async function syncNow() {
+  if (!isConnected()) return;
+  if (syncBusy) { syncQueued = true; return; }
+  syncBusy = true;
+  setSyncStatus("Syncing…");
+  try {
+    // Data made before sync existed has no timestamp yet. Give it one so it can be uploaded.
+    if (!localUpdated() && hasLocalData()) localStorage.setItem(UPDATED_KEY, String(Date.now()));
+
+    const remote = await downloadSnapshot();
+    const remoteNewer = remote && (remote.updatedAt || 0) > localUpdated();
+    const emptyHere = localUpdated() === 0 && !hasLocalData();
+
+    if (remote && (remoteNewer || emptyHere)) {
+      applySnapshot(remote);
+      localDirty = false;
+      render();
+      setSyncStatus("✓ Updated from Google Drive at " + timeNow());
+    } else if (localDirty || !remote) {
+      await uploadSnapshot(snapshot());
+      localDirty = false;
+      setSyncStatus("✓ Saved to Google Drive at " + timeNow());
+    } else {
+      setSyncStatus("✓ Up to date with Google Drive at " + timeNow());
+    }
+  } catch (e) {
+    setSyncStatus("Sync problem: " + e.message + ". Your data is still saved on this device.", true);
+  } finally {
+    syncBusy = false;
+    if (syncQueued) { syncQueued = false; syncNow(); }
+  }
+}
+
+function scheduleSync() {
+  if (!isConnected()) return;
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(syncNow, 1500);
+}
+
+// ---- Document import ----
+async function extractPdf(buf) {
+  if (!window.pdfjsLib) throw new Error("the PDF reader did not load; check your internet connection and reload");
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let out = "";
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    for (const item of content.items) out += item.str + (item.hasEOL ? "\n" : " ");
+    out += "\n";
+  }
+  return out;
+}
+
+async function extractDocx(buf) {
+  if (!window.mammoth) throw new Error("the Word reader did not load; check your internet connection and reload");
+  const r = await mammoth.extractRawText({ arrayBuffer: buf });
+  return r.value;
+}
+
+async function importFile(input) {
+  const file = input.files[0];
+  input.value = "";
+  if (!file) return;
+  const name = file.name.toLowerCase();
+  try {
+    let text;
+    if (name.endsWith(".pdf")) text = await extractPdf(await file.arrayBuffer());
+    else if (name.endsWith(".docx")) text = await extractDocx(await file.arrayBuffer());
+    else if (name.endsWith(".txt")) text = await file.text();
+    else return alert("Please choose a PDF, DOCX or TXT file.");
+    if (!text.trim()) return alert("No text found. This may be a scanned document, which needs OCR (not added yet).");
+    openReview(parseRecipeText(text), file.name);
+  } catch (e) {
+    alert("Could not read the file: " + e.message);
+  }
+}
+
+function parseRecipeText(text) {
+  const lines = text.split(/\r?\n/).map(l => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const out = { title: "", servings: profile.defaultServings, activeMin: 0, totalMin: 0, ingredients: [], steps: [] };
+  const unsorted = [];
+  let mode = "header";
+  let prepCook = 0, totalFound = 0, headingsFound = false;
+
+  for (const line of lines) {
+    if (/^ingredients?:?$/i.test(line)) { mode = "ing"; headingsFound = true; continue; }
+    if (/^(instructions?|directions?|method|steps?|preparation):?$/i.test(line)) { mode = "steps"; headingsFound = true; continue; }
+
+    if (mode === "ing") {
+      out.ingredients.push(line.replace(/^[-•*]\s*/, ""));
+    } else if (mode === "steps") {
+      const isNewStep = /^(\d+[.)]|[-•*])\s+/.test(line);
+      const clean = line.replace(/^(\d+[.)]|[-•*])\s+/, "");
+      if (isNewStep || out.steps.length === 0) out.steps.push(clean);
+      else out.steps[out.steps.length - 1] += " " + clean;
+    } else {
+      if (!out.title) { out.title = line; continue; }
+      const sv = line.match(/(?:serves|servings|yield|makes)\D{0,5}(\d+)/i);
+      if (sv) out.servings = +sv[1];
+      const tot = line.match(/total[^\d]{0,15}(\d+)\s*min/i);
+      if (tot) totalFound = +tot[1];
+      for (const m of line.matchAll(/(prep|cook|active)\w*[^\d]{0,15}(\d+)\s*min/gi)) prepCook += +m[2];
+      if (!sv && !tot && !/(prep|cook|active)\w*[^\d]{0,15}\d+\s*min/i.test(line)) unsorted.push(line);
+    }
+  }
+
+  out.activeMin = prepCook;
+  out.totalMin = totalFound || prepCook;
+  out.noHeadings = !headingsFound;
+  if (!headingsFound) out.ingredients = unsorted;
+  return out;
+}
+
+// ---- Allergens and calories ----
+function recipeAllergens(r) {
+  const text = r.ingredients.join(" ").toLowerCase();
+  return ALLERGENS.filter(a => a.words.some(w => new RegExp("\\b" + w + "s?\\b").test(text)));
+}
+
+function allergenBadge(r) {
+  const found = recipeAllergens(r);
+  if (!found.length) return "";
+  const mine = found.filter(a => profile.allergens.includes(a.key));
+  if (mine.length) {
+    return `<div class="alert">⚠ Contains your allergen: ${esc(mine.map(a => a.label).join(", "))}</div>`;
+  }
+  return `<div class="small">Contains: ${esc(found.map(a => a.label).join(", "))}</div>`;
+}
+
+function nutrition(r) {
+  let total = 0, missing = 0;
+  for (const line of r.ingredients) {
+    const p = parseIng(line);
+    if (p.qty === null || !p.name) { missing++; continue; }
+    let grams = null;
+    if (p.unit === "count") {
+      const g = lookup(p.name, GRAMS_PER_COUNT);
+      if (g) grams = p.qty * g;
+    } else {
+      const need = normalizeNeed(p.qty, p.unit, p.name);
+      if (need.kind === "mass") grams = need.amount;
+    }
+    const kcal = lookup(p.name, KCAL_PER_100G);
+    if (grams === null || kcal === null) { missing++; continue; }
+    total += grams / 100 * kcal;
+  }
+  return { perServing: total / (r.servings || 1), missing };
+}
+
+function calorieLine(r) {
+  if (!profile.showCalories) return "";
+  const n = nutrition(r);
+  if (n.perServing === 0 && n.missing === r.ingredients.length) {
+    return `<div class="small">Calories: not enough data to estimate</div>`;
+  }
+  return `<div class="small">About ${Math.round(n.perServing)} kcal per serving${n.missing ? ` · ${n.missing} ingredient(s) not counted` : ""}</div>`;
+}
+
+// ---- Navigation ----
+function tab(t) {
+  tabName = t;
+  view = t === "recipes" ? { name: "list", maxMinutes: 0 } : { name: "invlist" };
+  render();
+}
+function go(name, id) {
+  view = { name, maxMinutes: view.maxMinutes, id, servings: null, recipeId: null };
+  render();
+}
+function openRecipe(id) {
+  tabName = "recipes";
+  view = { name: "show", maxMinutes: view.maxMinutes, id, servings: null, recipeId: null };
+  render();
+}
+function editRecipe(id) {
+  tabName = "recipes";
+  view = { name: "edit", maxMinutes: view.maxMinutes, id };
+  render();
+}
+function openReview(draft, source) {
+  tabName = "recipes";
+  view = { name: "new", maxMinutes: view.maxMinutes, prefill: draft, source };
+  render();
+}
+
+function render() {
+  document.getElementById("tabR").classList.toggle("active", tabName === "recipes");
+  document.getElementById("tabI").classList.toggle("active", tabName === "inventory");
+  document.getElementById("tabP").classList.toggle("active", tabName === "plan");
+  document.getElementById("tabS").classList.toggle("active", tabName === "swipe");
+  document.getElementById("tabF").classList.toggle("active", tabName === "profile");
+  const app = document.getElementById("app");
+  if (tabName === "profile") {
+    app.innerHTML = profileView();
+  } else if (tabName === "swipe") {
+    app.innerHTML = swipeView();
+    attachSwipe();
+  } else if (tabName === "plan") {
+    app.innerHTML = planView();
+  } else if (tabName === "inventory") {
+    if (view.name === "newItem") app.innerHTML = itemForm(null);
+    else if (view.name === "editItem") app.innerHTML = itemForm(inventory.find(x => x.id === view.id));
+    else app.innerHTML = inventoryView();
+  } else {
+    if (view.name === "list") app.innerHTML = listView();
+    else if (view.name === "new" || view.name === "edit") app.innerHTML = formView();
+    else if (view.name === "paste") app.innerHTML = pasteView();
+    else if (view.name === "show") app.innerHTML = showView(view.id);
+  }
+}
+
+// ---- Profile ----
+function profileView() {
+  const boxes = ALLERGENS.map(a =>
+    `<label><input type="checkbox" id="al_${a.key}" ${profile.allergens.includes(a.key) ? "checked" : ""}>${a.label}</label>`).join("");
+  return `<h2>Household profile</h2>
+    <label>Default servings for new recipes <input id="pServ" type="number" min="1" max="12" value="${profile.defaultServings}"></label>
+    <h3>Allergies</h3>
+    <p class="small">Recipes that contain these show a red warning. Warnings are based on ingredient names, so always read labels.</p>
+    <div class="check-grid">${boxes}</div>
+    <h3>Calories</h3>
+    <label><input type="checkbox" id="pCal" ${profile.showCalories ? "checked" : ""}>Show calorie estimates</label>
+    <p class="small">Estimates use a built-in list of common ingredients. Unlisted ingredients are not counted.</p>
+    <button onclick="saveProfileForm()">Save profile</button>`;
+}
+
+function saveProfileForm() {
+  profile = {
+    defaultServings: +document.getElementById("pServ").value || 4,
+    allergens: ALLERGENS.filter(a => document.getElementById("al_" + a.key).checked).map(a => a.key),
+    showCalories: document.getElementById("pCal").checked
+  };
+  saveProfile();
+  alert("Profile saved.");
+  render();
+}
+
+// ---- Recipes ----
+function listView() {
+  const shown = recipes.filter(r => !view.maxMinutes || r.activeMin <= view.maxMinutes);
+  let h = `<button onclick="go('new')">+ Add recipe</button>
+    <button onclick="document.getElementById('fileInput').click()">Import file</button>
+    <button onclick="go('paste')">Paste text</button>
+    <p class="small">Import accepts PDF, DOCX or TXT. You review everything before it's saved.</p>
+    <label>Active time: <select onchange="view.maxMinutes=+this.value;render()">
+    ${[0, 15, 30, 60].map(v => `<option value="${v}" ${v === view.maxMinutes ? "selected" : ""}>${v ? "up to " + v + " min" : "Any time"}</option>`).join("")}
+    </select></label>`;
+  if (!shown.length) h += `<p>No recipes yet.</p>`;
+  for (const r of shown) {
+    h += `<div class="card"><b>${esc(r.title)}</b>
+      <div class="small">Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
+      ${calorieLine(r)}
+      ${allergenBadge(r)}
+      <button onclick="go('show','${r.id}')">Open</button>
+      <button onclick="editRecipe('${r.id}')">Edit</button></div>`;
+  }
+  return h;
+}
+
+function pasteView() {
+  return `<h2>Paste recipe text</h2>
+    <p class="small">Paste the whole recipe. Headings like "Ingredients" and "Instructions" help the app sort it.</p>
+    <textarea id="pasteText" rows="12"></textarea>
+    <button onclick="parsePasted()">Continue to review</button>
+    <button onclick="go('list')">Cancel</button>`;
+}
+
+function parsePasted() {
+  const text = document.getElementById("pasteText").value;
+  if (!text.trim()) return alert("Please paste some text first.");
+  openReview(parseRecipeText(text), "Pasted text");
+}
+
+// Used for new recipes, imported drafts, and editing an existing recipe.
+function formView() {
+  const editing = view.name === "edit";
+  const existing = editing ? recipes.find(x => x.id === view.id) : null;
+  if (editing && !existing) return listView();
+  const d = existing || view.prefill || { title: "", servings: profile.defaultServings, activeMin: "", totalMin: "", ingredients: [], steps: [] };
+  const banner = !editing && view.source
+    ? `<div class="notice">Imported from <b>${esc(view.source)}</b>. ${d.noHeadings ? "No headings were found, so all lines are in Ingredients. Move the steps down by hand. " : ""}Check every field before saving.</div>`
+    : "";
+  const heading = editing ? "Edit recipe" : view.source ? "Review recipe" : "New recipe";
+  const cancel = editing ? `openRecipe('${view.id}')` : `go('list')`;
+  return `<h2>${heading}</h2>
+    ${banner}
+    <input id="t" placeholder="Title" value="${esc(d.title)}">
+    <label>Serves <input id="s" type="number" value="${d.servings}" min="1"></label>
+    <label>Active minutes <input id="a" type="number" min="0" value="${d.activeMin}"></label>
+    <label>Total minutes <input id="tot" type="number" min="0" value="${d.totalMin}"></label>
+    <label>Ingredients (one per line, e.g. "2 eggs" or "1/2 cup milk")<textarea id="ing" rows="8">${esc(d.ingredients.join("\n"))}</textarea></label>
+    <label>Steps (one per line)<textarea id="stp" rows="8">${esc(d.steps.join("\n"))}</textarea></label>
+    <button onclick="saveRecipe()">Save</button>
+    <button onclick="${cancel}">Cancel</button>`;
+}
+
+function saveRecipe() {
+  const title = document.getElementById("t").value.trim();
+  if (!title) return alert("Please enter a title.");
+  const lines = id => document.getElementById(id).value.split("\n").map(x => x.trim()).filter(Boolean);
+  const data = {
+    title,
+    servings: +document.getElementById("s").value || profile.defaultServings,
+    activeMin: +document.getElementById("a").value || 0,
+    totalMin: +document.getElementById("tot").value || 0,
+    ingredients: lines("ing"),
+    steps: lines("stp")
+  };
+  if (view.name === "edit") {
+    const r = recipes.find(x => x.id === view.id);
+    if (!r) return go("list");
+    Object.assign(r, data);
+    save();
+    return openRecipe(r.id);
+  }
+  recipes.push({ id: uid(), ...data, source: view.source || "Manual entry" });
+  save();
+  go("list");
+}
+
+function showView(id) {
+  const r = recipes.find(x => x.id === id);
+  if (!r) return go("list");
+  if (!view.servings || view.recipeId !== id) { view.servings = r.servings; view.recipeId = id; }
+  const f = view.servings / r.servings;
+  const hasAllergens = recipeAllergens(r).length > 0;
+  return `<button onclick="go('list')">← Back</button>
+    <h2>${esc(r.title)}</h2>
+    ${allergenBadge(r)}
+    ${hasAllergens ? `<div class="small">Based on ingredient names. Always read labels.</div>` : ""}
+    <div class="small">Active ${r.activeMin} min · Total ${r.totalMin} min</div>
+    ${calorieLine(r)}
+    <div class="small">Source: ${esc(r.source || "Manual entry")}</div>
+    <label>Servings <input type="number" min="1" value="${view.servings}"
+      onchange="view.servings=+this.value||1;render()"></label>
+    <h3>Ingredients</h3>
+    <ul>${r.ingredients.map(i => `<li>${esc(scaleLine(i, f))}</li>`).join("")}</ul>
+    <h3>Steps</h3>
+    <ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+    <button onclick="editRecipe('${r.id}')">Edit recipe</button>
+    <button onclick="deleteRecipe('${r.id}')">Delete recipe</button>`;
+}
+
+function deleteRecipe(id) {
+  if (!confirm("Delete this recipe?")) return;
+  recipes = recipes.filter(r => r.id !== id);
+  plan = plan.filter(e => e.recipeId !== id);
+  swipe.liked = swipe.liked.filter(x => x !== id);
+  swipe.passed = swipe.passed.filter(x => x !== id);
+  save();
+  savePlan();
+  saveSwipe();
+  go("list");
+}
+
+// ---- Swipe inspiration ----
+function swipeDeck() {
+  const seen = new Set([...swipe.liked, ...swipe.passed]);
+  return recipes.filter(r => !seen.has(r.id));
+}
+
+function swipeView() {
+  let h = `<h2>Inspiration</h2>`;
+  if (!recipes.length) return h + `<p>Add some recipes first, then swipe through them here.</p>`;
+  h += `<p class="small">Swipe right to save, left to pass. You can also use the buttons.</p>`;
+  const deck = swipeDeck();
+  if (!deck.length) {
+    h += `<p>You've seen all your recipes.</p>
+      <button onclick="resetSwipe()">Show all again</button>`;
+    return h + savedList();
+  }
+  const r = deck[0];
+  h += `<div class="swipe-wrap">
+    <div id="card" class="swipe-card">
+      <div id="hint" class="hint"></div>
+      <b>${esc(r.title)}</b>
+      <div class="small">Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
+      ${calorieLine(r)}
+      ${allergenBadge(r)}
+      <ul>${r.ingredients.slice(0, 6).map(i => `<li>${esc(i)}</li>`).join("")}${r.ingredients.length > 6 ? `<li class="small">…and ${r.ingredients.length - 6} more</li>` : ""}</ul>
+      <button onclick="openRecipe('${r.id}')">Open full recipe</button>
+    </div>
+  </div>
+  <div class="row">
+    <button onclick="swipeAction('pass')">✕ Pass</button>
+    <button onclick="swipeAction('like')">♥ Save</button>
+  </div>
+  <p class="small">${deck.length} left to see</p>`;
+  return h + savedList();
+}
+
+function savedList() {
+  const saved = swipe.liked.map(id => recipes.find(r => r.id === id)).filter(Boolean);
+  let h = `<h3>Saved (${saved.length})</h3>`;
+  if (!saved.length) h += `<p class="small">Nothing saved yet.</p>`;
+  for (const r of saved) {
+    h += `<div class="card"><b>${esc(r.title)}</b>
+      <div class="small">Active ${r.activeMin} min · Serves ${r.servings}</div>
+      <button onclick="openRecipe('${r.id}')">Open</button></div>`;
+  }
+  return h;
+}
+
+function swipeAction(action) {
+  const r = swipeDeck()[0];
+  if (!r) return;
+  if (action === "like") swipe.liked.push(r.id);
+  else swipe.passed.push(r.id);
+  saveSwipe();
+  render();
+}
+
+function resetSwipe() {
+  swipe.passed = [];
+  saveSwipe();
+  render();
+}
+
+function attachSwipe() {
+  const el = document.getElementById("card");
+  if (!el) return;
+  const hint = document.getElementById("hint");
+  let startX = null, dx = 0;
+
+  el.addEventListener("pointerdown", e => {
+    startX = e.clientX; dx = 0;
+    el.style.transition = "none";
+  });
+  el.addEventListener("pointermove", e => {
+    if (startX === null) return;
+    dx = e.clientX - startX;
+    el.style.transform = `translateX(${dx}px) rotate(${dx / 25}deg)`;
+    hint.textContent = dx > 60 ? "SAVE ♥" : dx < -60 ? "PASS ✕" : "";
+    hint.style.color = dx > 0 ? "#2a7" : "#c00";
+  });
+  const release = () => {
+    if (startX === null) return;
+    const d = dx;
+    startX = null; dx = 0;
+    if (d > 100) flyOut(el, 1, () => swipeAction("like"));
+    else if (d < -100) flyOut(el, -1, () => swipeAction("pass"));
+    else {
+      el.style.transition = "transform .2s";
+      el.style.transform = "";
+      hint.textContent = "";
+    }
+  };
+  el.addEventListener("pointerup", release);
+  el.addEventListener("pointercancel", release);
+}
+
+function flyOut(el, dir, done) {
+  el.style.transition = "transform .25s";
+  el.style.transform = `translateX(${dir * 600}px) rotate(${dir * 30}deg)`;
+  setTimeout(done, 250);
+}
+
+// ---- Inventory ----
+function inventoryView() {
+  const active = inventory
+    .filter(i => !i.used)
+    .sort((a, b) => (a.expiry || "9999-12-31").localeCompare(b.expiry || "9999-12-31"));
+  let h = `<button onclick="go('newItem')">+ Add item</button>`;
+  if (!active.length) h += `<p>Nothing in inventory yet.</p>`;
+  for (const i of active) {
+    let status = "No date set";
+    let urgent = false;
+    if (i.expiry) {
+      const d = daysUntil(i.expiry);
+      urgent = d <= 3;
+      const when = d < 0 ? `EXPIRED ${-d} day(s) ago` : d === 0 ? "expires today" : `${d} day(s) left`;
+      status = `${i.quality} ${i.expiry}${i.expirySource === "rule" ? " (estimate)" : ""} · ${when}`;
+    }
+    h += `<div class="card ${urgent ? "warn" : ""}">
+      <b>${esc(i.name)}</b> · ${esc(i.qty)} ${esc(unitLabel(i.unit))} · ${esc(i.storage)}
+      <div class="small">${esc(status)}</div>
+      <button onclick="go('editItem','${i.id}')">Edit</button>
+      <button onclick="useUp('${i.id}')">Used up</button>
+    </div>`;
+  }
+  return h;
+}
+
+function unitSelect(current) {
+  const cur = current || "count";
+  const opts = UNIT_OPTIONS.map(([v, l]) => `<option value="${v}" ${v === cur ? "selected" : ""}>${l}</option>`);
+  if (!UNIT_OPTIONS.some(([v]) => v === cur)) opts.push(`<option value="${esc(cur)}" selected>${esc(cur)}</option>`);
+  return `<select id="u">${opts.join("")}</select>`;
+}
+
+function itemForm(item) {
+  const i = item || { name: "", qty: "1", unit: "count", storage: "fridge", expiry: "", quality: "best by" };
+  return `<h2>${item ? "Edit item" : "New item"}</h2>
+    <input id="n" placeholder="Name (e.g. Milk)" value="${esc(i.name)}">
+    <label>Quantity <input id="q" value="${esc(i.qty)}"></label>
+    <label>Unit ${unitSelect(i.unit)}</label>
+    <label>Storage <select id="st">${["fridge", "freezer", "pantry"].map(s => `<option ${s === i.storage ? "selected" : ""}>${s}</option>`).join("")}</select></label>
+    <label>Expiry date (optional) <input id="e" type="date" value="${i.expiry || ""}"></label>
+    <label>Date type <select id="qt">${["best by", "use by"].map(s => `<option ${s === i.quality ? "selected" : ""}>${s}</option>`).join("")}</select></label>
+    <p class="small">If you leave the date empty, an estimate is set from the storage type.</p>
+    <button onclick="saveItem('${item ? item.id : ""}')">Save</button>
+    <button onclick="tab('inventory')">Cancel</button>`;
+}
+
+function saveItem(id) {
+  const name = document.getElementById("n").value.trim();
+  if (!name) return alert("Please enter a name.");
+  const storage = document.getElementById("st").value;
+  let expiry = document.getElementById("e").value;
+  let expirySource = "user";
+  if (!expiry) { expiry = addDays(DEFAULT_DAYS[storage]); expirySource = "rule"; }
+  const data = {
+    name,
+    qty: document.getElementById("q").value.trim(),
+    unit: document.getElementById("u").value,
+    storage,
+    expiry,
+    expirySource,
+    quality: document.getElementById("qt").value
+  };
+  if (id) {
+    Object.assign(inventory.find(x => x.id === id), data);
+  } else {
+    inventory.push({ id: uid(), used: false, ...data });
+  }
+  saveInventory();
+  tab("inventory");
+}
+
+function useUp(id) {
+  const item = inventory.find(x => x.id === id);
+  if (item) item.used = true;
+  saveInventory();
+  render();
+}
+
+// ---- Meal plan ----
+function planView() {
+  let h = `<h2>Meal plan</h2>`;
+  if (!recipes.length) {
+    return h + `<p>Add a recipe first, then you can plan it here.</p>`;
+  }
+  const recipeOptions = recipes.map(r =>
+    `<option value="${r.id}" ${r.id === planDraft.recipeId ? "selected" : ""}>${esc(r.title)}</option>`).join("");
+  h += `<div class="card">
+    <label>Date <input type="date" value="${planDraft.date}" onchange="planDraft.date=this.value"></label>
+    <label>Meal <select onchange="planDraft.meal=this.value">
+      ${MEALS.map(m => `<option ${m === planDraft.meal ? "selected" : ""}>${m}</option>`).join("")}
+    </select></label>
+    <label>Recipe <select onchange="planDraft.recipeId=this.value;planDraft.servings='';render()">
+      <option value="">Choose a recipe…</option>${recipeOptions}
+    </select></label>
+    <label>Servings <input type="number" min="1" value="${planDraft.servings}" placeholder="recipe default"
+      onchange="planDraft.servings=this.value"></label>
+    <button onclick="addPlanEntry()">Add to plan</button>
+  </div>`;
+
+  const sorted = [...plan].sort((a, b) =>
+    a.date === b.date ? MEALS.indexOf(a.meal) - MEALS.indexOf(b.meal) : a.date.localeCompare(b.date));
+  if (!sorted.length) h += `<p>Nothing planned yet.</p>`;
+  for (const e of sorted) {
+    const r = recipes.find(x => x.id === e.recipeId);
+    const canUndo = e.cooked && lastCook && lastCook.planId === e.id;
+    h += `<div class="card ${e.cooked ? "cooked" : ""}">
+      <b>${esc(niceDate(e.date))} · ${esc(e.meal)}</b><br>
+      ${r ? esc(r.title) : "(recipe deleted)"} · serves ${e.servings}
+      ${r ? allergenBadge(r) : ""}
+      ${e.cooked ? `<div class="small">✓ Cooked. Ingredients were taken from inventory.</div>` : ""}
+      <div>
+        ${r && !e.cooked ? `<button onclick="markCooked('${e.id}')">Mark cooked</button>` : ""}
+        ${canUndo ? `<button onclick="undoCook()">Undo cook</button>` : ""}
+        <button onclick="removePlan('${e.id}')">Remove</button>
+      </div>
+    </div>`;
+  }
+
+  h += `<h2>Shopping list</h2>
+    <div class="row">
+      <label>From <input type="date" value="${planDraft.from}" onchange="planDraft.from=this.value"></label>
+      <label>To <input type="date" value="${planDraft.to}" onchange="planDraft.to=this.value"></label>
+    </div>
+    <button onclick="buildShop()">Build shopping list</button>
+    <button onclick="uncheckAll()">Uncheck all</button>`;
+
+  if (shopResult) h += shopView(shopResult);
+
+  h += `<h3>Extra items</h3>
+    <div class="row">
+      <input placeholder="e.g. paper towels" value="${esc(planDraft.manual)}" onchange="planDraft.manual=this.value">
+      <button onclick="addManual()">Add</button>
+    </div>`;
+  if (!shop.manual.length) h += `<p class="small">No extra items.</p>`;
+  for (const m of shop.manual) {
+    h += `<label class="${m.checked ? "done" : ""}">
+      <input type="checkbox" ${m.checked ? "checked" : ""} onchange="toggleManual('${m.id}')">${esc(m.name)}</label>
+      <button onclick="removeManual('${m.id}')">Remove</button><br>`;
+  }
+  return h;
+}
+
+function shopView(res) {
+  const toBuy = res.rows.filter(r => r.buy > 0.001);
+  const enough = res.rows.filter(r => r.buy <= 0.001);
+  let h = `<h3>To buy</h3>`;
+  if (!toBuy.length) h += `<p>Nothing to buy for this range.</p>`;
+  toBuy.forEach((r) => {
+    const idx = res.rows.indexOf(r);
+    const checked = !!shop.checked[r.key];
+    h += `<div class="card ${checked ? "done" : ""}">
+      <label><input type="checkbox" ${checked ? "checked" : ""} onchange="toggleCheck(${idx})">
+      <b>${esc(cap(r.name))}</b> · buy ${esc(fmtAmount(r.kind, r.buy))}</label>
+      <div class="small">Need ${esc(fmtAmount(r.kind, r.need))} · Have ${esc(fmtAmount(r.kind, r.have))}</div>
+      ${r.notCompared.length ? `<div class="small">In inventory but can't be converted: ${esc(r.notCompared.join(", "))}</div>` : ""}
+    </div>`;
+  });
+  if (enough.length) {
+    h += `<h3>Already have enough</h3>`;
+    h += enough.map(r => `<div class="small">${esc(cap(r.name))} (need ${esc(fmtAmount(r.kind, r.need))}, have ${esc(fmtAmount(r.kind, r.have))})</div>`).join("");
+  }
+  if (res.unparsed.length) {
+    h += `<h3>Check by hand</h3><p class="small">These lines have no amount, so they aren't in the totals:</p>`;
+    h += res.unparsed.map(l => `<div class="small">${esc(l)}</div>`).join("");
+  }
+  return h;
+}
+
+function addPlanEntry() {
+  const r = recipes.find(x => x.id === planDraft.recipeId);
+  if (!r) return alert("Choose a recipe first.");
+  plan.push({
+    id: uid(),
+    date: planDraft.date,
+    meal: planDraft.meal,
+    recipeId: r.id,
+    servings: +planDraft.servings || r.servings,
+    cooked: false
+  });
+  savePlan();
+  planDraft.servings = "";
+  render();
+}
+
+function removePlan(id) {
+  plan = plan.filter(e => e.id !== id);
+  savePlan();
+  render();
+}
+
+function markCooked(id) {
+  const e = plan.find(x => x.id === id);
+  if (!e || e.cooked) return;
+  const r = recipes.find(x => x.id === e.recipeId);
+  if (!r) return alert("This recipe was deleted.");
+  if (!confirm(`Take the ingredients for "${r.title}" out of your inventory?`)) return;
+
+  lastCook = { planId: id, inventory: JSON.stringify(inventory) };
+  localStorage.setItem(LKEY, JSON.stringify(lastCook));
+
+  const f = e.servings / r.servings;
+  const used = [];
+  const short = [];
+  const byExpiry = (a, b) => (a.expiry || "9999-12-31").localeCompare(b.expiry || "9999-12-31");
+
+  for (const line of r.ingredients) {
+    const p = parseIng(line);
+    if (p.qty === null || !p.name) { short.push(line + " (no amount)"); continue; }
+    const need = normalizeNeed(p.qty * f, p.unit, p.name);
+    let remaining = need.amount;
+    let took = 0;
+    const matches = inventory.filter(i => !i.used && namesMatch(i.name, p.name)).sort(byExpiry);
+
+    for (const it of matches) {
+      if (remaining <= 0.001) break;
+      const q = parseQty(it.qty || "");
+      if (!q) continue;
+      const avail = amountIn(need.kind, q.v, normUnit(it.unit), it.name);
+      if (avail === null) continue;
+      const useAmt = Math.min(avail, remaining);
+      remaining -= useAmt;
+      took += useAmt;
+      const left = avail - useAmt;
+      if (left <= 0.001) it.used = true;
+      else it.qty = fmt(q.v * left / avail);
+    }
+
+    if (took > 0) used.push(`${cap(p.name)}: ${fmtAmount(need.kind, took)}`);
+    if (remaining > 0.001) {
+      short.push(took > 0
+        ? `${cap(p.name)}: short by ${fmtAmount(need.kind, remaining)}`
+        : `${cap(p.name)}: not found in inventory with a usable unit (edit the item's unit or add a count)`);
+    }
+  }
+
+  e.cooked = true;
+  saveInventory();
+  savePlan();
+  let msg = used.length ? "Taken from inventory:\n- " + used.join("\n- ") : "Nothing was taken from inventory.";
+  if (short.length) msg += "\n\nCheck by hand:\n- " + short.join("\n- ");
+  msg += "\n\nUse 'Undo cook' to reverse this.";
+  alert(msg);
+  render();
+}
+
+function undoCook() {
+  if (!lastCook) return;
+  if (!confirm("Undo the last Mark cooked? Inventory goes back to how it was before that, so any edits made since are lost.")) return;
+  inventory = JSON.parse(lastCook.inventory);
+  saveInventory();
+  const e = plan.find(x => x.id === lastCook.planId);
+  if (e) e.cooked = false;
+  savePlan();
+  lastCook = null;
+  localStorage.removeItem(LKEY);
+  render();
+}
+
+function computeShopping(from, to) {
+  const needs = {};
+  const unparsed = [];
+  for (const e of plan) {
+    if (e.date < from || e.date > to) continue;
+    const r = recipes.find(x => x.id === e.recipeId);
+    if (!r) continue;
+    const f = e.servings / r.servings;
+    for (const line of r.ingredients) {
+      const p = parseIng(line);
+      if (p.qty === null || !p.name) { unparsed.push(line); continue; }
+      const need = normalizeNeed(p.qty * f, p.unit, p.name);
+      const key = p.name + "|" + need.kind;
+      if (!needs[key]) needs[key] = { name: p.name, kind: need.kind, base: 0 };
+      needs[key].base += need.amount;
+    }
+  }
+
+  const invItems = inventory.filter(i => !i.used);
+  const rows = Object.entries(needs).map(([key, n]) => {
+    let have = 0;
+    const notCompared = [];
+    for (const it of invItems) {
+      if (!namesMatch(it.name, n.name)) continue;
+      const q = parseQty(it.qty || "");
+      if (!q) continue;
+      const avail = amountIn(n.kind, q.v, normUnit(it.unit), it.name);
+      if (avail === null) notCompared.push(`${it.qty} ${unitLabel(it.unit)} ${it.name}`.trim());
+      else have += avail;
+    }
+    return {
+      key, name: n.name, kind: n.kind,
+      need: n.base, have,
+      buy: Math.max(0, n.base - have),
+      notCompared
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+  return { rows, unparsed };
+}
+
+function buildShop() {
+  shopResult = computeShopping(planDraft.from, planDraft.to);
+  render();
+}
+
+function toggleCheck(idx) {
+  const r = shopResult.rows[idx];
+  shop.checked[r.key] = !shop.checked[r.key];
+  saveShop();
+  render();
+}
+
+function addManual() {
+  const name = planDraft.manual.trim();
+  if (!name) return alert("Type an item first.");
+  shop.manual.push({ id: uid(), name, checked: false });
+  planDraft.manual = "";
+  saveShop();
+  render();
+}
+
+function toggleManual(id) {
+  const m = shop.manual.find(x => x.id === id);
+  if (m) m.checked = !m.checked;
+  saveShop();
+  render();
+}
+
+function removeManual(id) {
+  shop.manual = shop.manual.filter(x => x.id !== id);
+  saveShop();
+  render();
+}
+
+function uncheckAll() {
+  shop.checked = {};
+  shop.manual.forEach(m => m.checked = false);
+  saveShop();
+  render();
+}
+
+// ---- Start ----
+window.addEventListener("load", () => {
+  const ready = initAuth();
+  if (isConnected() && ready) syncNow();
+  else if (!isConnected()) setSyncStatus("Not connected. Recipes are saved on this device only.");
+});
+
+// When you switch back to this tab or app, pull the latest from Drive.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && isConnected()) syncNow();
+});
+
+render();
+</script>
+</body>
+</html>
