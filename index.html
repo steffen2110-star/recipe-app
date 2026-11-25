@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="theme-color" content="#2f6f4e">
 <title>My Kitchen</title>
 <style>
   :root {
@@ -137,7 +141,8 @@
 const CLIENT_ID = "792254125432-ha71mtoqv654o7ikd33tug8qgee0142f.apps.googleusercontent.com";
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
 const SYNC_FILE = "my-kitchen.json";
-const PICKER_KEY = "AIzaSyBVorS9buo0iBL_wxLXBD5kMH-0seWUhXM";
+// The Picker key is not stored in the code. It is entered once per device and kept in this browser only.
+let PICKER_KEY = localStorage.getItem("picker_key_v1") || "";
 const PROJECT_NUMBER = "792254125432";
 
 const RKEY = "recipes_v1";
@@ -403,6 +408,24 @@ function fmtAmount(kind, base) {
 }
 function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
+// ---- Temperatures ----
+// Adds the other unit in brackets: "165 °C" becomes "165 °C (329 °F)". Stored text is not changed.
+function tempText(s) {
+  const toF = c => Math.round(c * 9 / 5 + 32);
+  const toC = f => Math.round((f - 32) * 5 / 9);
+  return String(s).replace(
+    /(-?\d+(?:[.,]\d+)?)\s*(?:[°º]\s*([CcFf])\b|(?:degrees?|grad)\s*(?:[°º]\s*)?(Celsius|Fahrenheit|[CcFf])\b|(Celsius|Fahrenheit)\b)/gi,
+    (m, num, l1, l2, l3, offset, str) => {
+      const after = str.slice(offset + m.length);
+      if (/^\s*\(\s*-?\d/.test(after)) return m;
+      const letter = (l1 || l2 || l3 || "").toLowerCase();
+      if (!letter) return m;
+      const n = parseFloat(num.replace(",", "."));
+      if (letter.startsWith("c")) return `${num} °C (${toF(n)} °F)`;
+      return `${num} °F (${toC(n)} °C)`;
+    });
+}
+
 // ---- Google Drive sync ----
 function isConnected() { return !!localStorage.getItem(CONNECTED_KEY); }
 function localUpdated() { return Number(localStorage.getItem(UPDATED_KEY) || 0); }
@@ -601,6 +624,12 @@ function loadPicker() {
 // Opens Google's file chooser. Only the file the user picks is granted to the app.
 async function openSharedPicker() {
   if (CLIENT_ID.startsWith("PASTE")) return alert("Paste your Client ID into the code first.");
+  if (!PICKER_KEY) {
+    const k = prompt("Paste your Google Picker API key. It is stored only on this device.");
+    if (!k || !k.trim()) return;
+    PICKER_KEY = k.trim();
+    localStorage.setItem("picker_key_v1", PICKER_KEY);
+  }
   try {
     await getToken(true);
     await loadPicker();
@@ -658,7 +687,7 @@ function familyHtml() {
   const recs = recipes.map(r => `<h2>${esc(r.title)}</h2>
     <p>Serves ${r.servings} · Active ${r.activeMin} min · Total ${r.totalMin} min${r.rating ? " · Rating " + r.rating + "/5" : ""}</p>
     <h3>Ingredients</h3><ul>${r.ingredients.map(i => `<li>${esc(i)}</li>`).join("")}</ul>
-    <h3>Steps</h3><ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>`).join("");
+    <h3>Steps</h3><ol>${r.steps.map(s => `<li>${esc(tempText(s))}</li>`).join("")}</ol>`).join("");
   const inv = inventory.filter(i => !i.used).map(i =>
     `<li>${esc(i.name)} · ${esc(i.qty)} ${esc(unitLabel(i.unit))} · ${esc(i.storage)}${i.expiry ? " · " + esc(i.quality) + " " + esc(i.expiry) : ""}</li>`).join("");
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Our Kitchen</title></head><body>
@@ -855,7 +884,7 @@ function recipeDocBody(r, f) {
     <h2>Ingredients</h2>
     <ul>${r.ingredients.map(i => `<li>${esc(scaleLine(i, f))}</li>`).join("")}</ul>
     <h2>Steps</h2>
-    <ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+    <ol>${r.steps.map(s => `<li>${esc(tempText(s))}</li>`).join("")}</ol>
     <p class="small">Source: ${esc(r.source || "Manual entry")}</p>`;
 }
 
@@ -985,6 +1014,7 @@ function profileView() {
   const boxes = ALLERGENS.map(a =>
     `<label><input type="checkbox" id="al_${a.key}" ${profile.allergens.includes(a.key) ? "checked" : ""}>${a.label}</label>`).join("");
   return `<h2>Household profile</h2>
+    <button onclick="toggleLang()">${lang === "de" ? "English" : "Deutsch"}</button>
     <label>Default servings for new recipes <input id="pServ" type="number" min="1" max="12" value="${profile.defaultServings}"></label>
     <h3>Allergies</h3>
     <p class="small">Recipes that contain these show a red warning. Warnings are based on ingredient names, so always read labels.</p>
@@ -1168,7 +1198,7 @@ function showView(id) {
     <h3>Ingredients</h3>
     <ul>${r.ingredients.map(i => `<li>${esc(scaleLine(i, f))}</li>`).join("")}</ul>
     <h3>Steps</h3>
-    <ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+    <ol>${r.steps.map(s => `<li>${esc(tempText(s))}</li>`).join("")}</ol>
     <button onclick="printRecipe('${r.id}')">Print</button>
     <button onclick="shareRecipe('${r.id}')">Share file</button>
     <button onclick="editRecipe('${r.id}')">Edit recipe</button>
@@ -1869,6 +1899,100 @@ function uncheckAll() {
   saveShop();
   render();
 }
+
+// ---- Language (English / German) ----
+let lang = localStorage.getItem("lang_v1") || "en";
+
+const DE = {
+  "Recipes": "Rezepte", "Inventory": "Vorrat", "Plan": "Plan", "Swipe": "Entdecken", "Profile": "Profil",
+  "+ Add recipe": "+ Rezept hinzufügen", "Import file": "Datei importieren", "Paste text": "Text einfügen",
+  "What can I cook?": "Was kann ich kochen?", "Bulk upload": "Massen-Upload", "CSV template": "CSV-Vorlage",
+  "Any time": "Beliebig", "Active time:": "Aktive Zeit:", "No recipes yet.": "Noch keine Rezepte.",
+  "Open": "Öffnen", "Edit": "Bearbeiten", "Print": "Drucken", "Share file": "Datei teilen",
+  "Edit recipe": "Rezept bearbeiten", "Delete recipe": "Rezept löschen", "← Back": "← Zurück",
+  "Save": "Speichern", "Cancel": "Abbrechen", "Rating": "Bewertung", "Ingredients": "Zutaten",
+  "Steps": "Zubereitung", "Servings": "Portionen", "Active minutes": "Aktive Minuten",
+  "Total minutes": "Gesamtzeit (Min.)", "Title": "Titel", "Not rated yet": "Noch nicht bewertet",
+  "+ Add item": "+ Artikel hinzufügen", "Used up": "Verbraucht", "Edit item": "Artikel bearbeiten",
+  "New item": "Neuer Artikel", "Quantity": "Menge", "Unit": "Einheit", "Storage": "Lagerort",
+  "Expiry date (optional)": "Haltbar bis (optional)", "Date type": "Datumstyp",
+  "Nothing in inventory yet.": "Noch kein Vorrat.", "Add to plan": "Zum Plan hinzufügen",
+  "Mark cooked": "Als gekocht markieren", "Undo cook": "Kochen rückgängig", "Remove": "Entfernen",
+  "Build shopping list": "Einkaufsliste erstellen", "Uncheck all": "Alle abhaken",
+  "Extra items": "Extra-Artikel", "Add": "Hinzufügen", "Shopping list": "Einkaufsliste",
+  "Household profile": "Haushaltsprofil", "Default servings for new recipes": "Standard-Portionen für neue Rezepte",
+  "Allergies": "Allergien", "Calories": "Kalorien", "Show calorie estimates": "Kalorienschätzung anzeigen",
+  "Shared kitchen": "Gemeinsame Küche", "Open shared kitchen": "Gemeinsame Küche öffnen",
+  "Family view": "Familienansicht", "Update family view": "Familienansicht aktualisieren",
+  "Save profile": "Profil speichern", "Inspiration": "Inspiration", "✕ Pass": "✕ Weiter",
+  "♥ Save": "♥ Merken", "Show all again": "Alle wieder anzeigen", "Saved": "Gemerkt",
+  "Take photo": "Foto aufnehmen", "📷 Take photo": "📷 Foto aufnehmen", "🖼 Choose photo": "🖼 Foto wählen",
+  "Remove photo": "Foto entfernen", "New recipe": "Neues Rezept", "Review recipe": "Rezept prüfen",
+  "Paste recipe text": "Rezepttext einfügen", "Continue to review": "Weiter zur Prüfung",
+  "Meal plan": "Wochenplan", "Choose a recipe…": "Rezept wählen…", "Nothing planned yet.": "Noch nichts geplant.",
+  "From": "Von", "To": "Bis", "Date": "Datum", "Meal": "Mahlzeit", "Recipe": "Rezept",
+  "Add a recipe first, then you can plan it here.": "Erst ein Rezept hinzufügen, dann hier planen.",
+  "Add some recipes first, then swipe through them here.": "Erst Rezepte hinzufügen, dann hier durchblättern.",
+  "You've seen all your recipes.": "Du hast alle Rezepte gesehen.",
+  "Nothing saved yet.": "Noch nichts gemerkt.", "Nothing to buy for this range.": "Nichts zu kaufen in diesem Zeitraum.",
+  "breakfast": "Frühstück", "lunch": "Mittagessen", "dinner": "Abendessen", "snack": "Snack",
+  "pcs (count)": "Stück", "Name (e.g. Milk)": "Name (z. B. Milch)",
+  "fridge": "Kühlschrank", "freezer": "Gefrierfach", "pantry": "Vorratsschrank",
+  "best by": "mindestens haltbar bis", "use by": "verbrauchen bis",
+  "Import accepts PDF, DOCX or TXT. You review everything before it's saved.": "Import: PDF, DOCX oder TXT. Du prüfst alles, bevor es gespeichert wird.",
+  "Recipes that contain these show a red warning. Warnings are based on ingredient names, so always read labels.":
+    "Rezepte mit diesen Zutaten zeigen eine rote Warnung. Die Prüfung basiert auf Zutatennamen, bitte immer Etiketten lesen.",
+  "Manual entry": "Manuelle Eingabe", "Bulk upload ": "Massen-Upload"
+};
+
+const DE_PATTERNS = [
+  [/^Active (\d+) min · Total (\d+) min · Serves (\d+)$/, "Aktiv $1 Min. · Gesamt $2 Min. · Portionen $3"],
+  [/^Active (\d+) min · Total (\d+) min$/, "Aktiv $1 Min. · Gesamt $2 Min."],
+  [/^Active (\d+) min · Serves (\d+)$/, "Aktiv $1 Min. · Portionen $2"],
+  [/^Serves (\d+) · Active (\d+) min · Total (\d+) min$/, "Portionen $1 · Aktiv $2 Min. · Gesamt $3 Min."]
+];
+
+// Translates one piece of text. The English original is kept on each text node so switching back works.
+function translateText(en) {
+  if (lang !== "de") return en;
+  const k = en.trim();
+  if (!k) return en;
+  if (DE[k]) return en.replace(k, () => DE[k]);
+  for (const [re, rep] of DE_PATTERNS) {
+    if (re.test(k)) return en.replace(k, () => k.replace(re, rep));
+  }
+  return en;
+}
+
+// Walks the page's text and applies the chosen language.
+function applyLang() {
+  document.documentElement.lang = lang;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const node of nodes) {
+    const parent = node.parentNode;
+    if (!parent || ["SCRIPT", "STYLE", "TEXTAREA"].includes(parent.nodeName)) continue;
+    if (parent.closest && parent.closest("#print")) continue;
+    if (node._en === undefined) node._en = node.nodeValue;
+    node.nodeValue = translateText(node._en);
+  }
+  document.querySelectorAll("input[placeholder], textarea[placeholder]").forEach(el => {
+    if (!el._enPh) el._enPh = el.placeholder;
+    el.placeholder = lang === "de" && DE[el._enPh] ? DE[el._enPh] : el._enPh;
+  });
+}
+
+function toggleLang() {
+  lang = lang === "de" ? "en" : "de";
+  localStorage.setItem("lang_v1", lang);
+  applyLang();
+  render();
+}
+
+// Every screen refresh also applies the chosen language.
+const renderBase = render;
+render = function () { renderBase(); applyLang(); };
 
 // ---- Start ----
 window.addEventListener("load", () => {
