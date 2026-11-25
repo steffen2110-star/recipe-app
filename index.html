@@ -5,31 +5,116 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>My Kitchen</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 0 auto; padding: 12px; font-size: 18px; }
-  button { font-size: 18px; padding: 10px 14px; margin: 4px 4px 4px 0; }
-  input, textarea, select { font-size: 18px; width: 100%; box-sizing: border-box; padding: 8px; margin: 4px 0; }
-  input[type=checkbox] { width: auto; margin: 0 8px 0 0; }
-  .card { border: 1px solid #ccc; border-radius: 8px; padding: 10px; margin: 8px 0; }
-  .warn { border: 2px solid #c00; background: #fff4f4; }
-  .notice { border: 1px solid #c90; background: #fffbea; border-radius: 8px; padding: 8px; font-size: 15px; }
-  .small { color: #555; font-size: 15px; }
-  .alert { color: #b00; font-weight: bold; font-size: 15px; }
-  .done { text-decoration: line-through; color: #888; }
-  .cooked { border: 2px solid #2a7; background: #f2fff7; }
-  .sync { font-size: 15px; background: #f3f3f3; padding: 8px; border-radius: 6px; margin-bottom: 8px; }
-  .sync.err { background: #fff4f4; color: #b00; }
-  .sync button { font-size: 15px; padding: 6px 10px; }
-  nav { margin-bottom: 8px; }
-  nav button.active { background: #222; color: #fff; }
-  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  :root {
+    --bg: #f6f5f2; --card: #ffffff; --ink: #1d1d1f; --muted: #6b6b70;
+    --line: #e4e2dc; --accent: #2f6f4e; --accent-soft: #e8f3ed;
+    --danger: #b42318; --danger-soft: #fdf0ee; --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto; padding: 16px; max-width: 640px;
+    background: var(--bg); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 17px; line-height: 1.45;
+  }
+  h1 { font-size: 28px; margin: 4px 0 12px; letter-spacing: -0.02em; }
+  h2 { font-size: 22px; margin: 18px 0 8px; }
+  h3 { font-size: 17px; margin: 16px 0 6px; }
+  ul, ol { padding-left: 22px; }
+  li { margin: 4px 0; }
+
+  button {
+    font: inherit; font-size: 16px; padding: 10px 16px; margin: 4px 6px 4px 0;
+    border-radius: 999px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); cursor: pointer;
+    transition: transform .08s ease, background .15s ease;
+  }
+  button:active { transform: scale(0.97); }
+  button[onclick^="save"], button[onclick^="addPlanEntry"],
+  button[onclick^="buildShop"], button[onclick^="markCooked"],
+  button[onclick^="connect"], button[onclick^="confirmBulk"],
+  button[onclick^="publishFamilyView"], button[onclick^="openSharedPicker"] {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+  }
+
+  input, textarea, select {
+    width: 100%; font: inherit; font-size: 16px; padding: 10px 12px;
+    margin: 4px 0 10px; border: 1px solid var(--line); border-radius: 10px;
+    background: #fff; color: var(--ink);
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: 2px solid var(--accent-soft); border-color: var(--accent);
+  }
+  input[type=checkbox] { width: auto; margin: 0 8px 0 0; accent-color: var(--accent); }
+  label { display: block; font-size: 15px; color: var(--muted); margin-bottom: 6px; }
+
+  nav {
+    display: flex; gap: 4px; overflow-x: auto; padding: 4px; margin: 10px 0 14px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 999px;
+  }
+  nav button {
+    flex: 1; margin: 0; padding: 8px 10px; border: none; background: transparent;
+    white-space: nowrap; font-size: 15px; color: var(--muted);
+  }
+  nav button.active { background: var(--ink); color: #fff; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 14px 16px; margin: 10px 0; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .card b { font-size: 18px; }
+  .warn { border-color: var(--danger); background: var(--danger-soft); }
+  .cooked { border-color: var(--accent); background: var(--accent-soft); }
+  .notice {
+    background: #fff8e6; border: 1px solid #f1d28a; border-radius: 10px;
+    padding: 10px 12px; font-size: 15px; margin-bottom: 10px;
+  }
+  .small { color: var(--muted); font-size: 14px; }
+  .alert { color: var(--danger); font-weight: 600; font-size: 14px; margin: 4px 0; }
+  .done { text-decoration: line-through; color: #9a9a9f; }
+
+  .sync {
+    display: flex; flex-direction: column; gap: 6px; font-size: 14px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px; margin-bottom: 8px;
+  }
+  .sync.err { background: var(--danger-soft); color: var(--danger); border-color: #f3c4bf; }
+  .sync button { font-size: 14px; padding: 6px 12px; margin: 0 4px 0 0; }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
   .row > * { flex: 1 1 140px; }
-  .swipe-card { border: 1px solid #ccc; border-radius: 12px; padding: 16px; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.1); touch-action: none; user-select: none; }
-  .swipe-card ul { padding-left: 20px; }
-  .hint { font-weight: bold; min-height: 24px; }
+  .check-grid label { display: block; margin: 8px 0; font-size: 16px; color: var(--ink); }
+
   .swipe-wrap { margin: 12px 0; }
-  .check-grid label { display: block; margin: 6px 0; }
+  .swipe-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 18px;
+    padding: 20px; box-shadow: 0 6px 18px rgba(0,0,0,.08);
+    touch-action: none; user-select: none;
+  }
+  .swipe-card ul { padding-left: 20px; }
+  .hint { font-weight: 700; min-height: 24px; }
+
+  .photo { width: 100%; max-height: 260px; object-fit: cover; border-radius: var(--radius); margin: 8px 0; display: block; }
+  .thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; float: right; margin-left: 10px; }
+  .photo-actions { margin: 6px 0 10px; }
+
+  .stars { color: #e0a800; font-size: 18px; letter-spacing: 2px; margin: 4px 0; }
+  .stars .off { color: #d6d3cb; }
+  .stars-pick { margin: 6px 0 10px; }
+  .stars-pick .star { font-size: 32px; color: #d6d3cb; cursor: pointer; padding: 0 4px; display: inline-block; user-select: none; }
+  .stars-pick .star.on { color: #e0a800; }
+
+  #print { display: none; }
+  @media print {
+    body > *:not(#print) { display: none !important; }
+    #print { display: block !important; color: #000; background: #fff; }
+    #print h1 { font-size: 26px; margin-bottom: 4px; }
+    #print h2 { font-size: 20px; margin-top: 16px; }
+    #print li { margin: 4px 0; }
+  }
 </style>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </head>
@@ -44,12 +129,16 @@
   <button id="tabF" onclick="tab('profile')">Profile</button>
 </nav>
 <div id="app"></div>
+<div id="print"></div>
 <input type="file" id="fileInput" accept=".pdf,.docx,.txt" style="display:none" onchange="importFile(this)">
+<input type="file" id="bulkFile" accept=".csv,.json,text/csv,application/json" style="display:none" onchange="readBulk(this)">
 <script>
-// ---- Google Drive settings ----
+// ---- Google settings ----
 const CLIENT_ID = "792254125432-ha71mtoqv654o7ikd33tug8qgee0142f.apps.googleusercontent.com";
 const SCOPE = "https://www.googleapis.com/auth/drive.file";
 const SYNC_FILE = "my-kitchen.json";
+const PICKER_KEY = "AIzaSyBVorS9buo0iBL_wxLXBD5kMH-0seWUhXM";
+const PROJECT_NUMBER = "792254125432";
 
 const RKEY = "recipes_v1";
 const IKEY = "inventory_v1";
@@ -61,10 +150,16 @@ const PRKEY = "profile_v1";
 const UPDATED_KEY = "kitchen_updated_v1";
 const CONNECTED_KEY = "drive_connected_v1";
 const DRIVE_ID_KEY = "drive_file_id_v1";
+const SHARED_KEY = "shared_file_v1";
+const FAMILY_KEY = "family_doc_v1";
 
 // Rough starting defaults in days. Estimates only; to be replaced with USDA FoodKeeper values later.
 const DEFAULT_DAYS = { fridge: 7, freezer: 90, pantry: 30 };
 const MEALS = ["breakfast", "lunch", "dinner", "snack"];
+const STORAGE_OK = ["fridge", "freezer", "pantry"];
+
+// Pantry basics that are ignored in "What can I cook?"
+const STAPLES = ["salt", "pepper", "black pepper", "water", "oil", "olive oil", "vegetable oil"];
 
 // Every spelling we recognise, mapped to one internal unit key
 const UNITS = {
@@ -184,6 +279,7 @@ let shopResult = null;
 let tokenClient = null, accessToken = null, tokenExpiry = 0, pendingToken = null;
 let driveFileId = localStorage.getItem(DRIVE_ID_KEY) || null;
 let syncBusy = false, syncQueued = false, localDirty = false, syncTimer = null;
+let pickerReady = false;
 
 // ---- Save (every save marks the data as changed and schedules a Drive sync) ----
 function save() { localStorage.setItem(RKEY, JSON.stringify(recipes)); changed(); }
@@ -323,7 +419,6 @@ function setSyncStatus(msg, isErr) {
   el.innerHTML = `<span>${esc(msg)}</span><div>${buttons}</div>`;
 }
 
-// Loads the Google sign-in library and sets up the token client.
 function initAuth() {
   if (typeof google === "undefined" || !google.accounts) {
     setSyncStatus("Google sign-in did not load. Check your internet connection and reload.", true);
@@ -347,7 +442,6 @@ function initAuth() {
   return true;
 }
 
-// Returns a valid token. interactive=true may show the Google sign-in popup.
 function getToken(interactive) {
   if (accessToken && Date.now() < tokenExpiry) return Promise.resolve();
   if (!tokenClient) return Promise.reject(new Error("Google sign-in is not ready"));
@@ -438,7 +532,6 @@ function snapshot() {
   return { version: 1, updatedAt: localUpdated(), recipes, inventory, plan, shop, swipe, profile };
 }
 
-// Replaces this device's data with the data from Drive. Does not trigger another upload.
 function applySnapshot(s) {
   recipes = s.recipes || [];
   inventory = s.inventory || [];
@@ -455,14 +548,12 @@ function applySnapshot(s) {
   localStorage.setItem(UPDATED_KEY, String(s.updatedAt || 0));
 }
 
-// Pulls newer data from Drive, or pushes local changes. The most recently changed copy wins.
 async function syncNow() {
   if (!isConnected()) return;
   if (syncBusy) { syncQueued = true; return; }
   syncBusy = true;
   setSyncStatus("Syncing…");
   try {
-    // Data made before sync existed has no timestamp yet. Give it one so it can be uploaded.
     if (!localUpdated() && hasLocalData()) localStorage.setItem(UPDATED_KEY, String(Date.now()));
 
     const remote = await downloadSnapshot();
@@ -493,6 +584,141 @@ function scheduleSync() {
   if (!isConnected()) return;
   clearTimeout(syncTimer);
   syncTimer = setTimeout(syncNow, 1500);
+}
+
+// ---- Shared kitchen (Google Picker) ----
+function loadPicker() {
+  return new Promise((resolve, reject) => {
+    if (pickerReady) return resolve();
+    if (!window.gapi) return reject(new Error("Google Picker did not load. Check your connection and reload."));
+    gapi.load("picker", {
+      callback: () => { pickerReady = true; resolve(); },
+      onerror: () => reject(new Error("Picker failed to load"))
+    });
+  });
+}
+
+// Opens Google's file chooser. Only the file the user picks is granted to the app.
+async function openSharedPicker() {
+  if (CLIENT_ID.startsWith("PASTE")) return alert("Paste your Client ID into the code first.");
+  try {
+    await getToken(true);
+    await loadPicker();
+    const view = new google.picker.DocsView(google.picker.ViewId.DOCS);
+    const picker = new google.picker.PickerBuilder()
+      .setAppId(PROJECT_NUMBER)
+      .setOAuthToken(accessToken)
+      .setDeveloperKey(PICKER_KEY)
+      .addView(view)
+      .setTitle("Choose my-kitchen.json")
+      .setCallback(data => {
+        if (data.action === google.picker.Action.PICKED) linkSharedFile(data.docs[0].id);
+      })
+      .build();
+    picker.setVisible(true);
+  } catch (e) {
+    alert("Could not open the file picker: " + e.message);
+  }
+}
+
+// Switches this device to the shared file and loads its data.
+async function linkSharedFile(id) {
+  if (hasLocalData() && !confirm("Use the shared kitchen? This device's current recipes, inventory and plan will be replaced with the shared file's data.")) return;
+  localStorage.setItem(SHARED_KEY, id);
+  localStorage.setItem(DRIVE_ID_KEY, id);
+  localStorage.setItem(CONNECTED_KEY, "1");
+  driveFileId = id;
+  try {
+    const remote = await downloadSnapshot();
+    if (!remote) throw new Error("the file is empty or could not be read");
+    applySnapshot(remote);
+    localDirty = false;
+    render();
+    setSyncStatus("✓ Connected to the shared kitchen at " + timeNow());
+  } catch (e) {
+    setSyncStatus("Could not open the shared file: " + e.message, true);
+  }
+}
+
+// ---- Family view (read-only Google Doc) ----
+function familyUrl() {
+  const id = localStorage.getItem(FAMILY_KEY);
+  return id ? `https://docs.google.com/document/d/${id}/view` : "";
+}
+
+function familyLinkHtml() {
+  const url = familyUrl();
+  return url
+    ? `<p class="small">Current link: <a href="${url}" target="_blank" rel="noopener">${url}</a></p>`
+    : `<p class="small">Not created yet.</p>`;
+}
+
+// Builds a simple HTML page. Google Drive converts it into a Google Doc.
+function familyHtml() {
+  const recs = recipes.map(r => `<h2>${esc(r.title)}</h2>
+    <p>Serves ${r.servings} · Active ${r.activeMin} min · Total ${r.totalMin} min${r.rating ? " · Rating " + r.rating + "/5" : ""}</p>
+    <h3>Ingredients</h3><ul>${r.ingredients.map(i => `<li>${esc(i)}</li>`).join("")}</ul>
+    <h3>Steps</h3><ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>`).join("");
+  const inv = inventory.filter(i => !i.used).map(i =>
+    `<li>${esc(i.name)} · ${esc(i.qty)} ${esc(unitLabel(i.unit))} · ${esc(i.storage)}${i.expiry ? " · " + esc(i.quality) + " " + esc(i.expiry) : ""}</li>`).join("");
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Our Kitchen</title></head><body>
+    <h1>Our Kitchen</h1>
+    <p>Updated ${new Date().toLocaleString()}. Read-only copy.</p>
+    <h2>Recipes</h2>${recs || "<p>No recipes yet.</p>"}
+    <h2>Inventory</h2>${inv ? `<ul>${inv}</ul>` : "<p>Nothing in inventory.</p>"}
+  </body></html>`;
+}
+
+// Creates the Doc and shares it as view-only with anyone who has the link.
+async function createFamilyDoc(html) {
+  const boundary = "family" + Date.now();
+  const meta = JSON.stringify({ name: "Our Kitchen (family view)", mimeType: "application/vnd.google-apps.document" });
+  const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n` +
+    `--${boundary}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n${html}\r\n--${boundary}--`;
+  const r = await driveFetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", {
+    method: "POST",
+    headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+    body
+  });
+  if (!r.ok) throw new Error("create failed (" + r.status + ")");
+  const d = await r.json();
+  const p = await driveFetch(`https://www.googleapis.com/drive/v3/files/${d.id}/permissions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type: "anyone", role: "reader" })
+  });
+  if (!p.ok) throw new Error("sharing failed (" + p.status + ")");
+  localStorage.setItem(FAMILY_KEY, d.id);
+  return d.id;
+}
+
+// Refreshes the existing Doc. If Google refuses the update, a new Doc is created.
+async function publishFamilyView() {
+  if (!isConnected()) return alert("Connect Google Drive first (see the status bar at the top).");
+  const html = familyHtml();
+  const id = localStorage.getItem(FAMILY_KEY);
+  try {
+    let replaced = false;
+    if (id) {
+      const r = await driveFetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`, {
+        method: "PATCH",
+        headers: { "Content-Type": "text/html; charset=UTF-8" },
+        body: html
+      });
+      if (!r.ok) {
+        localStorage.removeItem(FAMILY_KEY);
+        await createFamilyDoc(html);
+        replaced = true;
+      }
+    } else {
+      await createFamilyDoc(html);
+      replaced = true;
+    }
+    render();
+    alert("Family view updated." + (replaced ? " The link has changed, so share the new one. You can delete the old Doc in Drive." : "") + "\n\n" + familyUrl());
+  } catch (e) {
+    alert("Could not update the family view: " + e.message);
+  }
 }
 
 // ---- Document import ----
@@ -615,6 +841,90 @@ function calorieLine(r) {
   return `<div class="small">About ${Math.round(n.perServing)} kcal per serving${n.missing ? ` · ${n.missing} ingredient(s) not counted` : ""}</div>`;
 }
 
+// ---- Print and share ----
+function currentFactor(r) {
+  return (view.recipeId === r.id && view.servings) ? view.servings / r.servings : 1;
+}
+
+function recipeDocBody(r, f) {
+  const srv = fmt(r.servings * f);
+  const found = recipeAllergens(r).map(a => a.label);
+  return `<h1>${esc(r.title)}</h1>
+    <p>Serves ${srv} · Active ${r.activeMin} min · Total ${r.totalMin} min</p>
+    ${found.length ? `<p><b>Contains:</b> ${esc(found.join(", "))}</p>` : ""}
+    <h2>Ingredients</h2>
+    <ul>${r.ingredients.map(i => `<li>${esc(scaleLine(i, f))}</li>`).join("")}</ul>
+    <h2>Steps</h2>
+    <ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+    <p class="small">Source: ${esc(r.source || "Manual entry")}</p>`;
+}
+
+function printRecipe(id) {
+  const r = recipes.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById("print").innerHTML = recipeDocBody(r, currentFactor(r));
+  window.print();
+}
+
+async function shareRecipe(id) {
+  const r = recipes.find(x => x.id === id);
+  if (!r) return;
+  const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(r.title)}</title>
+    <style>body{font-family:system-ui,sans-serif;max-width:640px;margin:0 auto;padding:12px;font-size:18px}
+    li{margin:4px 0}</style></head><body>${recipeDocBody(r, currentFactor(r))}</body></html>`;
+  const base = (r.title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase()) || "recipe";
+  const file = new File([html], base + ".html", { type: "text/html" });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: r.title });
+      return;
+    } catch (e) {
+      if (e.name === "AbortError") return;
+    }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(file);
+  a.download = file.name;
+  a.click();
+}
+
+// ---- What can I cook? ----
+function cookNowView() {
+  let h = `<button onclick="go('list')">← Back</button>
+    <h2>What can I cook?</h2>
+    <p class="small">Matches ingredient names in your inventory. Quantities are not checked here. Salt, pepper, water and oil are ignored.</p>`;
+  if (!recipes.length) return h + `<p>Add some recipes first.</p>`;
+  const inv = inventory.filter(i => !i.used);
+  const rows = recipes.map(r => {
+    const missing = [];
+    let total = 0;
+    for (const line of r.ingredients) {
+      const p = parseIng(line);
+      if (!p.name || STAPLES.includes(p.name)) continue;
+      total++;
+      if (!inv.some(it => namesMatch(it.name, p.name))) missing.push(p.name);
+    }
+    return { r, missing, total, have: total - missing.length };
+  }).filter(x => x.total > 0)
+    .sort((a, b) => a.missing.length - b.missing.length || a.r.activeMin - b.r.activeMin);
+
+  const top = rows.slice(0, 3);
+  if (!top.length) return h + `<p>No recipes to compare yet.</p>`;
+  for (const x of top) {
+    h += `<div class="card">
+      <b>${esc(x.r.title)}</b>
+      <div class="small">You have ${x.have} of ${x.total} ingredients · Active ${x.r.activeMin} min</div>
+      ${x.missing.length
+        ? `<div class="small">Missing: ${esc(x.missing.map(cap).join(", "))}</div>`
+        : `<div class="small">You have everything for this recipe.</div>`}
+      ${allergenBadge(x.r)}
+      <button onclick="openRecipe('${x.r.id}')">Open</button>
+    </div>`;
+  }
+  return h;
+}
+
 // ---- Navigation ----
 function tab(t) {
   tabName = t;
@@ -648,7 +958,9 @@ function render() {
   document.getElementById("tabS").classList.toggle("active", tabName === "swipe");
   document.getElementById("tabF").classList.toggle("active", tabName === "profile");
   const app = document.getElementById("app");
-  if (tabName === "profile") {
+  if (view.name === "bulk") {
+    app.innerHTML = bulkView();
+  } else if (tabName === "profile") {
     app.innerHTML = profileView();
   } else if (tabName === "swipe") {
     app.innerHTML = swipeView();
@@ -661,6 +973,7 @@ function render() {
     else app.innerHTML = inventoryView();
   } else {
     if (view.name === "list") app.innerHTML = listView();
+    else if (view.name === "cooknow") app.innerHTML = cookNowView();
     else if (view.name === "new" || view.name === "edit") app.innerHTML = formView();
     else if (view.name === "paste") app.innerHTML = pasteView();
     else if (view.name === "show") app.innerHTML = showView(view.id);
@@ -679,6 +992,14 @@ function profileView() {
     <h3>Calories</h3>
     <label><input type="checkbox" id="pCal" ${profile.showCalories ? "checked" : ""}>Show calorie estimates</label>
     <p class="small">Estimates use a built-in list of common ingredients. Unlisted ingredients are not counted.</p>
+    <h3>Shared kitchen</h3>
+    <p class="small">For Olga: opens the kitchen file you shared with her, so you both use the same recipes and inventory.</p>
+    <button onclick="openSharedPicker()">Open shared kitchen</button>
+    <h3>Family view</h3>
+    <p class="small">A read-only page of your recipes and inventory for family members. Anyone with the link can view it, but no one can edit it. It does not update automatically, so press the button after making changes.</p>
+    ${familyLinkHtml()}
+    <button onclick="publishFamilyView()">Update family view</button>
+    <h3>Profile</h3>
     <button onclick="saveProfileForm()">Save profile</button>`;
 }
 
@@ -694,19 +1015,57 @@ function saveProfileForm() {
 }
 
 // ---- Recipes ----
+// Read-only stars for the recipe list, e.g. ★★★☆☆
+function starsHtml(n) {
+  if (!n) return `<div class="small">Not rated yet</div>`;
+  return `<div class="stars" aria-label="${n} of 5 stars">${"★".repeat(n)}<span class="off">${"★".repeat(5 - n)}</span></div>`;
+}
+
+// Tap-to-rate stars used in the add and edit form. Saves into a hidden field.
+function ratingPicker(n) {
+  const v = +n || 0;
+  return `<div class="stars-pick">${[1, 2, 3, 4, 5].map(i =>
+    `<span class="star ${i <= v ? "on" : ""}" onclick="setRatingInput(${i})">★</span>`).join("")}</div>
+    <input type="hidden" id="ratingData" value="${v}">`;
+}
+
+function setRatingInput(i) {
+  document.getElementById("ratingData").value = i;
+  document.querySelectorAll(".stars-pick .star").forEach((s, idx) => s.classList.toggle("on", idx < i));
+}
+
+// Tap-to-rate stars on the recipe page. Tapping the current rating again clears it.
+function ratingBar(r) {
+  const v = r.rating || 0;
+  return `<div class="stars-pick" title="Tap to rate">${[1, 2, 3, 4, 5].map(i =>
+    `<span class="star ${i <= v ? "on" : ""}" onclick="rateRecipe('${r.id}', ${i})">★</span>`).join("")}</div>`;
+}
+
+function rateRecipe(id, i) {
+  const r = recipes.find(x => x.id === id);
+  if (!r) return;
+  r.rating = r.rating === i ? 0 : i;
+  save();
+  render();
+}
+
 function listView() {
   const shown = recipes.filter(r => !view.maxMinutes || r.activeMin <= view.maxMinutes);
   let h = `<button onclick="go('new')">+ Add recipe</button>
     <button onclick="document.getElementById('fileInput').click()">Import file</button>
     <button onclick="go('paste')">Paste text</button>
+    <button onclick="go('cooknow')">What can I cook?</button>
+    <button onclick="bulkPick('recipes')">Bulk upload</button>
+    <button onclick="downloadTemplate('recipes')">CSV template</button>
     <p class="small">Import accepts PDF, DOCX or TXT. You review everything before it's saved.</p>
     <label>Active time: <select onchange="view.maxMinutes=+this.value;render()">
     ${[0, 15, 30, 60].map(v => `<option value="${v}" ${v === view.maxMinutes ? "selected" : ""}>${v ? "up to " + v + " min" : "Any time"}</option>`).join("")}
     </select></label>`;
   if (!shown.length) h += `<p>No recipes yet.</p>`;
   for (const r of shown) {
-    h += `<div class="card"><b>${esc(r.title)}</b>
+    h += `<div class="card">${r.photo ? `<img class="thumb" src="${r.photo}" alt="">` : ""}<b>${esc(r.title)}</b>
       <div class="small">Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
+      ${starsHtml(r.rating)}
       ${calorieLine(r)}
       ${allergenBadge(r)}
       <button onclick="go('show','${r.id}')">Open</button>
@@ -729,7 +1088,6 @@ function parsePasted() {
   openReview(parseRecipeText(text), "Pasted text");
 }
 
-// Used for new recipes, imported drafts, and editing an existing recipe.
 function formView() {
   const editing = view.name === "edit";
   const existing = editing ? recipes.find(x => x.id === view.id) : null;
@@ -740,14 +1098,26 @@ function formView() {
     : "";
   const heading = editing ? "Edit recipe" : view.source ? "Review recipe" : "New recipe";
   const cancel = editing ? `openRecipe('${view.id}')` : `go('list')`;
+  const photoNow = d.photo || "";
   return `<h2>${heading}</h2>
     ${banner}
+    <div class="photo-actions">
+      ${photoNow ? `<img class="photo" id="photoPreview" src="${photoNow}" alt="">` : `<img class="photo" id="photoPreview" style="display:none" alt="">`}
+      <input type="hidden" id="photoData" value="${photoNow}">
+      <button onclick="document.getElementById('camInput').click()">📷 Take photo</button>
+      <button onclick="document.getElementById('galInput').click()">🖼 Choose photo</button>
+      ${photoNow ? `<button onclick="clearPhoto()">Remove photo</button>` : ""}
+    </div>
+    <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none" onchange="pickPhoto(this)">
+    <input type="file" id="galInput" accept="image/*" style="display:none" onchange="pickPhoto(this)">
     <input id="t" placeholder="Title" value="${esc(d.title)}">
     <label>Serves <input id="s" type="number" value="${d.servings}" min="1"></label>
     <label>Active minutes <input id="a" type="number" min="0" value="${d.activeMin}"></label>
     <label>Total minutes <input id="tot" type="number" min="0" value="${d.totalMin}"></label>
     <label>Ingredients (one per line, e.g. "2 eggs" or "1/2 cup milk")<textarea id="ing" rows="8">${esc(d.ingredients.join("\n"))}</textarea></label>
     <label>Steps (one per line)<textarea id="stp" rows="8">${esc(d.steps.join("\n"))}</textarea></label>
+    <label>Rating</label>
+    ${ratingPicker(d.rating)}
     <button onclick="saveRecipe()">Save</button>
     <button onclick="${cancel}">Cancel</button>`;
 }
@@ -762,7 +1132,9 @@ function saveRecipe() {
     activeMin: +document.getElementById("a").value || 0,
     totalMin: +document.getElementById("tot").value || 0,
     ingredients: lines("ing"),
-    steps: lines("stp")
+    steps: lines("stp"),
+    photo: document.getElementById("photoData").value || undefined,
+    rating: +document.getElementById("ratingData").value || 0
   };
   if (view.name === "edit") {
     const r = recipes.find(x => x.id === view.id);
@@ -784,10 +1156,12 @@ function showView(id) {
   const hasAllergens = recipeAllergens(r).length > 0;
   return `<button onclick="go('list')">← Back</button>
     <h2>${esc(r.title)}</h2>
+    ${r.photo ? `<img class="photo" src="${r.photo}" alt="">` : ""}
     ${allergenBadge(r)}
     ${hasAllergens ? `<div class="small">Based on ingredient names. Always read labels.</div>` : ""}
     <div class="small">Active ${r.activeMin} min · Total ${r.totalMin} min</div>
     ${calorieLine(r)}
+    ${ratingBar(r)}
     <div class="small">Source: ${esc(r.source || "Manual entry")}</div>
     <label>Servings <input type="number" min="1" value="${view.servings}"
       onchange="view.servings=+this.value||1;render()"></label>
@@ -795,6 +1169,8 @@ function showView(id) {
     <ul>${r.ingredients.map(i => `<li>${esc(scaleLine(i, f))}</li>`).join("")}</ul>
     <h3>Steps</h3>
     <ol>${r.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+    <button onclick="printRecipe('${r.id}')">Print</button>
+    <button onclick="shareRecipe('${r.id}')">Share file</button>
     <button onclick="editRecipe('${r.id}')">Edit recipe</button>
     <button onclick="deleteRecipe('${r.id}')">Delete recipe</button>`;
 }
@@ -809,6 +1185,48 @@ function deleteRecipe(id) {
   savePlan();
   saveSwipe();
   go("list");
+}
+
+// ---- Recipe photos ----
+// Shrinks a photo to 800 px wide and compresses it, so it stays small in the sync file.
+function shrinkImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(1, 800 / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("could not read that image")); };
+    img.src = url;
+  });
+}
+
+async function pickPhoto(input) {
+  const file = input.files[0];
+  input.value = "";
+  if (!file) return;
+  try {
+    const data = await shrinkImage(file);
+    document.getElementById("photoData").value = data;
+    const p = document.getElementById("photoPreview");
+    p.src = data;
+    p.style.display = "block";
+  } catch (e) {
+    alert("Photo problem: " + e.message);
+  }
+}
+
+function clearPhoto() {
+  document.getElementById("photoData").value = "";
+  const p = document.getElementById("photoPreview");
+  p.removeAttribute("src");
+  p.style.display = "none";
 }
 
 // ---- Swipe inspiration ----
@@ -831,8 +1249,10 @@ function swipeView() {
   h += `<div class="swipe-wrap">
     <div id="card" class="swipe-card">
       <div id="hint" class="hint"></div>
+      ${r.photo ? `<img class="photo" src="${r.photo}" alt="">` : ""}
       <b>${esc(r.title)}</b>
       <div class="small">Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
+      ${starsHtml(r.rating)}
       ${calorieLine(r)}
       ${allergenBadge(r)}
       <ul>${r.ingredients.slice(0, 6).map(i => `<li>${esc(i)}</li>`).join("")}${r.ingredients.length > 6 ? `<li class="small">…and ${r.ingredients.length - 6} more</li>` : ""}</ul>
@@ -854,6 +1274,7 @@ function savedList() {
   for (const r of saved) {
     h += `<div class="card"><b>${esc(r.title)}</b>
       <div class="small">Active ${r.activeMin} min · Serves ${r.servings}</div>
+      ${starsHtml(r.rating)}
       <button onclick="openRecipe('${r.id}')">Open</button></div>`;
   }
   return h;
@@ -918,7 +1339,9 @@ function inventoryView() {
   const active = inventory
     .filter(i => !i.used)
     .sort((a, b) => (a.expiry || "9999-12-31").localeCompare(b.expiry || "9999-12-31"));
-  let h = `<button onclick="go('newItem')">+ Add item</button>`;
+  let h = `<button onclick="go('newItem')">+ Add item</button>
+    <button onclick="bulkPick('inventory')">Bulk upload</button>
+    <button onclick="downloadTemplate('inventory')">CSV template</button>`;
   if (!active.length) h += `<p>Nothing in inventory yet.</p>`;
   for (const i of active) {
     let status = "No date set";
@@ -952,7 +1375,7 @@ function itemForm(item) {
     <input id="n" placeholder="Name (e.g. Milk)" value="${esc(i.name)}">
     <label>Quantity <input id="q" value="${esc(i.qty)}"></label>
     <label>Unit ${unitSelect(i.unit)}</label>
-    <label>Storage <select id="st">${["fridge", "freezer", "pantry"].map(s => `<option ${s === i.storage ? "selected" : ""}>${s}</option>`).join("")}</select></label>
+    <label>Storage <select id="st">${STORAGE_OK.map(s => `<option ${s === i.storage ? "selected" : ""}>${s}</option>`).join("")}</select></label>
     <label>Expiry date (optional) <input id="e" type="date" value="${i.expiry || ""}"></label>
     <label>Date type <select id="qt">${["best by", "use by"].map(s => `<option ${s === i.quality ? "selected" : ""}>${s}</option>`).join("")}</select></label>
     <p class="small">If you leave the date empty, an estimate is set from the storage type.</p>
@@ -990,6 +1413,200 @@ function useUp(id) {
   if (item) item.used = true;
   saveInventory();
   render();
+}
+
+// ---- Bulk upload ----
+// Reads CSV text into objects. Header names are lowercased, with spaces turned into underscores.
+function parseCSV(text) {
+  const rows = [];
+  let row = [], cur = "", inQuotes = false;
+  text = text.replace(/^\uFEFF/, "");
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') inQuotes = false;
+      else cur += c;
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      row.push(cur); cur = "";
+    } else if (c === "\n" || c === "\r") {
+      if (c === "\r" && text[i + 1] === "\n") i++;
+      row.push(cur); cur = "";
+      if (row.some(x => x.trim() !== "")) rows.push(row);
+      row = [];
+    } else {
+      cur += c;
+    }
+  }
+  row.push(cur);
+  if (row.some(x => x.trim() !== "")) rows.push(row);
+  if (rows.length < 2) return [];
+  const headers = rows[0].map(h => h.trim().toLowerCase().replace(/\s+/g, "_"));
+  return rows.slice(1).map(r => {
+    const o = {};
+    headers.forEach((h, i) => o[h] = (r[i] || "").trim());
+    return o;
+  });
+}
+
+// Checks one inventory row and turns it into an item. Problems are listed in err.
+function bulkInventoryRows(rows) {
+  return rows.map((r, n) => {
+    const err = [];
+    const name = r.name || "";
+    if (!name) err.push("name missing");
+    const storage = (r.storage || "fridge").toLowerCase();
+    if (!STORAGE_OK.includes(storage)) err.push("storage must be fridge, freezer or pantry");
+    let expiry = r.expiry || "";
+    let expirySource = "user";
+    if (!expiry) {
+      expiry = addDays(DEFAULT_DAYS[storage] || 7);
+      expirySource = "rule";
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(expiry)) {
+      err.push("expiry must be YYYY-MM-DD");
+    }
+    const quality = (r.quality || "").toLowerCase() === "use by" ? "use by" : "best by";
+    return {
+      row: n + 2,
+      err,
+      data: {
+        name,
+        qty: r.qty || "1",
+        unit: normUnit(r.unit || "count"),
+        storage: STORAGE_OK.includes(storage) ? storage : "fridge",
+        expiry,
+        expirySource,
+        quality
+      }
+    };
+  });
+}
+
+// Checks one recipe row. Ingredients and steps are separated by the | character.
+function bulkRecipeRows(rows) {
+  const existing = new Set(recipes.map(r => r.title.trim().toLowerCase()));
+  const seenInFile = new Set();
+  const split = s => (s || "").split("|").map(x => x.trim()).filter(Boolean);
+  return rows.map((r, n) => {
+    const err = [];
+    const title = r.title || "";
+    const key = title.trim().toLowerCase();
+    const ingredients = split(r.ingredients);
+    const steps = split(r.steps);
+    if (!title) err.push("title missing");
+    if (!ingredients.length) err.push("no ingredients");
+    if (key && existing.has(key)) err.push("a recipe with this title already exists (skipped)");
+    if (key && seenInFile.has(key)) err.push("duplicate title in this file (skipped)");
+    seenInFile.add(key);
+    return {
+      row: n + 2,
+      err,
+      data: {
+        title,
+        servings: +r.servings || profile.defaultServings,
+        activeMin: +r.active_min || 0,
+        totalMin: +r.total_min || 0,
+        ingredients,
+        steps,
+        source: "Bulk upload"
+      }
+    };
+  });
+}
+
+function bulkPick(kind) {
+  const f = document.getElementById("bulkFile");
+  f.dataset.kind = kind;
+  f.click();
+}
+
+async function readBulk(input) {
+  const file = input.files[0];
+  const kind = input.dataset.kind;
+  input.value = "";
+  if (!file) return;
+  try {
+    const text = await file.text();
+    let rows;
+    if (file.name.toLowerCase().endsWith(".json")) {
+      const data = JSON.parse(text);
+      if (!Array.isArray(data)) throw new Error("the JSON file must contain a list");
+      rows = data.map(x => kind === "recipes" ? {
+        title: x.title,
+        servings: x.servings,
+        active_min: x.activeMin ?? x.active_min,
+        total_min: x.totalMin ?? x.total_min,
+        ingredients: Array.isArray(x.ingredients) ? x.ingredients.join("|") : x.ingredients,
+        steps: Array.isArray(x.steps) ? x.steps.join("|") : x.steps
+      } : Object.fromEntries(Object.entries(x).map(([k, v]) => [k.toLowerCase(), v == null ? "" : String(v)])));
+    } else {
+      rows = parseCSV(text);
+    }
+    if (!rows.length) return alert("No rows found. Check that the first line has the column names.");
+    const items = kind === "recipes" ? bulkRecipeRows(rows) : bulkInventoryRows(rows);
+    view = { name: "bulk", kind, items };
+    tabName = kind === "recipes" ? "recipes" : "inventory";
+    render();
+  } catch (e) {
+    alert("Could not read the file: " + e.message);
+  }
+}
+
+function bulkView() {
+  const { kind, items } = view;
+  const ok = items.filter(i => !i.err.length);
+  const label = kind === "recipes" ? "recipes" : "inventory items";
+  let h = `<button onclick="cancelBulk()">← Back</button>
+    <h2>Review ${label} upload</h2>
+    <p class="small">${ok.length} ready to import, ${items.length - ok.length} skipped. Nothing is saved until you confirm.</p>`;
+  for (const it of items.slice(0, 50)) {
+    const d = it.data;
+    const title = kind === "recipes"
+      ? d.title
+      : `${d.name} · ${d.qty} ${unitLabel(d.unit)} · ${d.storage}`;
+    h += `<div class="card ${it.err.length ? "warn" : ""}">
+      <b>${esc(title || "(no title)")}</b>
+      ${kind === "recipes"
+        ? `<div class="small">Serves ${d.servings} · ${d.ingredients.length} ingredients · ${d.steps.length} steps</div>`
+        : `<div class="small">${esc(d.quality)} ${esc(d.expiry)}${d.expirySource === "rule" ? " (estimate)" : ""}</div>`}
+      ${it.err.length ? `<div class="alert">Row ${it.row}: ${esc(it.err.join("; "))}</div>` : ""}
+    </div>`;
+  }
+  if (items.length > 50) h += `<p class="small">Showing the first 50 of ${items.length} rows. The import includes all ready rows.</p>`;
+  if (ok.length) h += `<button onclick="confirmBulk()">Import ${ok.length} ${label}</button>`;
+  h += `<button onclick="cancelBulk()">Cancel</button>`;
+  return h;
+}
+
+function confirmBulk() {
+  const ok = view.items.filter(i => !i.err.length).map(i => i.data);
+  const kind = view.kind;
+  if (kind === "recipes") {
+    ok.forEach(d => recipes.push({ id: uid(), ...d }));
+    save();
+  } else {
+    ok.forEach(d => inventory.push({ id: uid(), used: false, ...d }));
+    saveInventory();
+  }
+  tab(kind === "recipes" ? "recipes" : "inventory");
+  alert(`Imported ${ok.length} ${kind === "recipes" ? "recipe(s)" : "inventory item(s)"}.`);
+}
+
+function cancelBulk() {
+  tab(view.kind === "recipes" ? "recipes" : "inventory");
+}
+
+// Downloads a CSV with the right column names and one example row.
+function downloadTemplate(kind) {
+  const csv = kind === "recipes"
+    ? 'title,servings,active_min,total_min,ingredients,steps\n"Pancakes",4,10,25,"1 cup flour|1 egg|1 cup milk","Mix everything|Cook 2 min per side"'
+    : "name,qty,unit,storage,expiry,quality\nMilk,1,gallon,fridge,,best by\nRice,500,g,pantry,2027-06-01,best by";
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  a.download = kind + "-template.csv";
+  a.click();
 }
 
 // ---- Meal plan ----
@@ -1256,11 +1873,11 @@ function uncheckAll() {
 // ---- Start ----
 window.addEventListener("load", () => {
   const ready = initAuth();
+  driveFileId = localStorage.getItem(SHARED_KEY) || driveFileId;
   if (isConnected() && ready) syncNow();
   else if (!isConnected()) setSyncStatus("Not connected. Recipes are saved on this device only.");
 });
 
-// When you switch back to this tab or app, pull the latest from Drive.
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden && isConnected()) syncNow();
 });
