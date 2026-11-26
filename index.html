@@ -43,6 +43,7 @@
   }
   .mini { font-size: 13px; padding: 4px 10px; margin: 2px 4px 2px 0; }
   .mini.accent { background: var(--orange); border-color: var(--orange); color: #fff; }
+  .top-btn { background: #2e7d32; border-color: #2e7d32; color: #fff; }
   .btn-pass { background: #c62828; border-color: #c62828; color: #fff; font-size: 18px; padding: 12px 22px; }
   .btn-save { background: #2e7d32; border-color: #2e7d32; color: #fff; font-size: 18px; padding: 12px 22px; }
   .row-btns { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
@@ -57,20 +58,31 @@
   }
   input[type=checkbox] { width: auto; margin: 0 8px 0 0; accent-color: var(--accent); }
   label { display: block; font-size: 15px; color: var(--muted); margin-bottom: 6px; }
+  label.check { color: var(--ink); font-size: 16px; }
 
-  nav {
-    display: flex; gap: 4px; overflow-x: auto; padding: 4px; margin: 10px 0 14px;
+  /* Top-level sections */
+  #topnav {
+    display: flex; gap: 4px; overflow-x: auto; padding: 4px; margin: 10px 0 10px;
     background: var(--card); border: 1px solid var(--line); border-radius: 999px;
   }
-  nav button {
-    flex: 1; margin: 0; padding: 8px 10px; border: none; background: transparent;
-    white-space: nowrap; font-size: 15px; color: var(--muted);
+  #topnav button {
+    flex: 1; margin: 0; padding: 9px 10px; border: none; background: transparent;
+    white-space: nowrap; font-size: 15px; color: var(--muted); font-weight: 600;
   }
-  nav button.active { background: var(--ink); color: #fff; }
+  #topnav button.active { background: var(--ink); color: #fff; }
 
+  /* Sub-tabs inside Recipes */
   .subnav { display: flex; gap: 6px; margin: 6px 0 10px; }
   .subnav button { flex: 1; margin: 0; padding: 6px 8px; font-size: 15px; }
   .subnav button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* Inventory storage tabs with their colours */
+  .storage-nav { display: flex; gap: 6px; margin: 6px 0 10px; }
+  .storage-nav button { flex: 1; margin: 0; padding: 8px; font-size: 15px; font-weight: 700; border: 2px solid transparent; }
+  .storage-nav button.active { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .storage-nav .st-freezer { background: #1d3f8f; color: #fff; }
+  .storage-nav .st-fridge { background: #bfe6f7; color: #0b3b52; }
+  .storage-nav .st-pantry { background: #c8a27a; color: #2a1a0a; }
 
   .line {
     display: flex; align-items: center; gap: 6px; min-height: 40px;
@@ -78,6 +90,9 @@
     padding: 6px 10px; margin: 4px 0; font-size: 15px;
   }
   .line .mini { flex: none; }
+  .line.st-freezer { border-left: 6px solid #1d3f8f; }
+  .line.st-fridge { border-left: 6px solid #7cc8ec; }
+  .line.st-pantry { border-left: 6px solid #a9784b; }
   .ell { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .line input[type=checkbox] { margin: 0; flex: none; }
 
@@ -94,7 +109,7 @@
   .head h2 { margin: 12px 0 8px; }
 
   .top-wrap {
-    background: #dcf2e0; border: 1px solid #9fd3ab; border-radius: var(--radius);
+    background: #cdeed4; border: 1px solid #6fbf7f; border-radius: var(--radius);
     padding: 12px; margin-top: 8px;
   }
 
@@ -172,12 +187,11 @@
 </head>
 <body>
 <h1>My Kitchen</h1>
-<nav>
-  <button id="tabR" onclick="tab('recipes')">Recipes</button>
-  <button id="tabI" onclick="tab('inventory')">Inventory</button>
-  <button id="tabS" onclick="tab('swipe')">Swipe</button>
-  <button id="tabP" onclick="tab('plan')">Plan</button>
-  <button id="tabF" onclick="tab('profile')">Profile</button>
+<nav id="topnav">
+  <button data-sec="recipes" onclick="tab('recipes')">Recipes</button>
+  <button data-sec="restaurants" onclick="tab('restaurants')">Restaurants</button>
+  <button data-sec="playgrounds" onclick="tab('playgrounds')">Playgrounds</button>
+  <button data-sec="profile" onclick="tab('profile')">⚙</button>
 </nav>
 <div id="app"></div>
 <div id="sync" class="sync">Starting…</div>
@@ -196,6 +210,7 @@ const PROJECT_NUMBER = "792254125432";
 const RKEY = "recipes_v1";
 const IKEY = "inventory_v1";
 const PKEY = "plan_v1";
+const PLKEY = "places_v1";
 const SKEY = "shop_v1";
 const LKEY = "lastcook_v1";
 const SWKEY = "swipe_v1";
@@ -210,8 +225,11 @@ const FAMILY_KEY = "family_doc_v1";
 const DEFAULT_DAYS = { fridge: 7, freezer: 90, pantry: 30 };
 const MEALS = ["breakfast", "lunch", "dinner", "snack"];
 const STORAGE_OK = ["fridge", "freezer", "pantry"];
+const INV_ORDER = ["freezer", "fridge", "pantry"];
 const CATS = ["Baking", "Cooking", "Salad", "Soup"];
+const CAT_LABEL = { Baking: "🍰 Baking", Cooking: "🍳 Cooking", Salad: "🥗 Salad", Soup: "🍜 Soup" };
 const DEFAULT_CAT = "Cooking";
+const PLACE_ZONES = ["FREE", "Library", "Paid"];
 
 // Pantry basics that are ignored in "What can I cook?"
 const STAPLES = ["salt", "pepper", "black pepper", "water", "oil", "olive oil", "vegetable oil"];
@@ -321,6 +339,7 @@ const ALLERGENS = [
 let recipes = JSON.parse(localStorage.getItem(RKEY) || "[]");
 let inventory = JSON.parse(localStorage.getItem(IKEY) || "[]");
 let plan = JSON.parse(localStorage.getItem(PKEY) || "[]");
+let places = JSON.parse(localStorage.getItem(PLKEY) || "[]");
 let shop = JSON.parse(localStorage.getItem(SKEY) || '{"checked":{},"manual":[]}');
 let lastCook = JSON.parse(localStorage.getItem(LKEY) || "null");
 let swipe = JSON.parse(localStorage.getItem(SWKEY) || '{"liked":[],"passed":[]}');
@@ -328,6 +347,8 @@ let profile = { defaultServings: 4, allergens: [], showCalories: true, ...JSON.p
 let tabName = "recipes";
 let invTab = "fridge";
 let recipeCat = DEFAULT_CAT;
+let playZone = "FREE";
+let pmode = { mode: "list" };
 let view = { name: "list", maxMinutes: 0 };
 let planDraft = { date: isoDate(new Date()), meal: "dinner", recipeId: "", servings: "", from: isoDate(new Date()), to: addDays(6), manual: "" };
 let shopResult = null;
@@ -342,6 +363,7 @@ let pickerReady = false;
 function save() { localStorage.setItem(RKEY, JSON.stringify(recipes)); changed(); }
 function saveInventory() { localStorage.setItem(IKEY, JSON.stringify(inventory)); changed(); }
 function savePlan() { localStorage.setItem(PKEY, JSON.stringify(plan)); changed(); }
+function savePlaces() { localStorage.setItem(PLKEY, JSON.stringify(places)); changed(); }
 function saveShop() { localStorage.setItem(SKEY, JSON.stringify(shop)); changed(); }
 function saveSwipe() { localStorage.setItem(SWKEY, JSON.stringify(swipe)); changed(); }
 function saveProfile() { localStorage.setItem(PRKEY, JSON.stringify(profile)); changed(); }
@@ -499,7 +521,7 @@ function tempText(s) {
 // ---- Google Drive sync ----
 function isConnected() { return !!localStorage.getItem(CONNECTED_KEY); }
 function localUpdated() { return Number(localStorage.getItem(UPDATED_KEY) || 0); }
-function hasLocalData() { return recipes.length || inventory.length || plan.length; }
+function hasLocalData() { return recipes.length || inventory.length || plan.length || places.length; }
 function timeNow() { return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
 
 function setSyncStatus(msg, isErr) {
@@ -622,19 +644,21 @@ async function uploadSnapshot(snap) {
 }
 
 function snapshot() {
-  return { version: 1, updatedAt: localUpdated(), recipes, inventory, plan, shop, swipe, profile };
+  return { version: 2, updatedAt: localUpdated(), recipes, inventory, plan, places, shop, swipe, profile };
 }
 
 function applySnapshot(s) {
   recipes = s.recipes || [];
   inventory = s.inventory || [];
   plan = s.plan || [];
+  places = s.places || [];
   shop = s.shop || { checked: {}, manual: [] };
   swipe = s.swipe || { liked: [], passed: [] };
   profile = { defaultServings: 4, allergens: [], showCalories: true, ...(s.profile || {}) };
   localStorage.setItem(RKEY, JSON.stringify(recipes));
   localStorage.setItem(IKEY, JSON.stringify(inventory));
   localStorage.setItem(PKEY, JSON.stringify(plan));
+  localStorage.setItem(PLKEY, JSON.stringify(places));
   localStorage.setItem(SKEY, JSON.stringify(shop));
   localStorage.setItem(SWKEY, JSON.stringify(swipe));
   localStorage.setItem(PRKEY, JSON.stringify(profile));
@@ -1027,7 +1051,7 @@ function cookNowView() {
 // ---- Top 10 leaderboard (most cooked), on a green background ----
 function topView() {
   let h = `<button class="mini" onclick="go('list')">← Back</button>
-    <h2>Top 10 cooked</h2>`;
+    <h2>🏆 Top 10 cooked</h2>`;
   const list = recipes
     .filter(r => (r.cookCount || 0) > 0)
     .sort((a, b) => (b.cookCount || 0) - (a.cookCount || 0) || a.title.localeCompare(b.title))
@@ -1046,9 +1070,15 @@ function topView() {
 }
 
 // ---- Navigation ----
+// Which top-level section a screen belongs to, for highlighting the top bar.
+function sectionOf(t) {
+  if (["recipes", "inventory", "swipe", "plan"].includes(t)) return "recipes";
+  return t;
+}
 function tab(t) {
   tabName = t;
-  view = t === "recipes" ? { name: "list", maxMinutes: 0 } : { name: "invlist" };
+  pmode = { mode: "list" };
+  view = { name: "list", maxMinutes: 0 };
   render();
 }
 function go(name, id) {
@@ -1073,7 +1103,7 @@ function openReview(draft, source) {
 function setInvTab(s) {
   invTab = s;
   tabName = "inventory";
-  view = { name: "invlist" };
+  view = { name: "list", maxMinutes: view.maxMinutes };
   render();
 }
 function setRecipeCat(c) {
@@ -1083,34 +1113,34 @@ function setRecipeCat(c) {
   render();
 }
 
+// Sub-tabs shown inside the Recipes section.
+function sectionNav() {
+  const items = [["recipes", "Recipes"], ["inventory", "Inventory"], ["swipe", "Swipe"], ["plan", "Plan"]];
+  return `<div class="subnav">${items.map(([t, l]) =>
+    `<button class="${tabName === t ? "active" : ""}" onclick="tab('${t}')">${l}</button>`).join("")}</div>`;
+}
+
 function render() {
-  document.getElementById("tabR").classList.toggle("active", tabName === "recipes");
-  document.getElementById("tabI").classList.toggle("active", tabName === "inventory");
-  document.getElementById("tabS").classList.toggle("active", tabName === "swipe");
-  document.getElementById("tabP").classList.toggle("active", tabName === "plan");
-  document.getElementById("tabF").classList.toggle("active", tabName === "profile");
+  const sec = sectionOf(tabName);
+  document.querySelectorAll("#topnav button").forEach(b => b.classList.toggle("active", b.dataset.sec === sec));
   const app = document.getElementById("app");
-  if (view.name === "bulk") {
-    app.innerHTML = bulkView();
-  } else if (tabName === "profile") {
-    app.innerHTML = profileView();
-  } else if (tabName === "swipe") {
-    app.innerHTML = swipeView();
-    attachSwipe();
-  } else if (tabName === "plan") {
-    app.innerHTML = planView();
-  } else if (tabName === "inventory") {
-    if (view.name === "newItem") app.innerHTML = itemForm(null);
-    else if (view.name === "editItem") app.innerHTML = itemForm(inventory.find(x => x.id === view.id));
-    else app.innerHTML = inventoryView();
-  } else {
-    if (view.name === "list") app.innerHTML = listView();
-    else if (view.name === "cooknow") app.innerHTML = cookNowView();
-    else if (view.name === "top") app.innerHTML = topView();
-    else if (view.name === "new" || view.name === "edit") app.innerHTML = formView();
-    else if (view.name === "paste") app.innerHTML = pasteView();
-    else if (view.name === "show") app.innerHTML = showView(view.id);
-  }
+  if (view.name === "bulk") { app.innerHTML = bulkView(); return; }
+  if (tabName === "profile") { app.innerHTML = profileView(); return; }
+  if (tabName === "restaurants" || tabName === "playgrounds") { app.innerHTML = placesSection(); return; }
+  app.innerHTML = sectionNav() + recipeSection();
+  if (tabName === "swipe") attachSwipe();
+}
+
+function recipeSection() {
+  if (tabName === "inventory") return inventoryScreen();
+  if (tabName === "swipe") return swipeView();
+  if (tabName === "plan") return planView();
+  if (view.name === "cooknow") return cookNowView();
+  if (view.name === "top") return topView();
+  if (view.name === "new" || view.name === "edit") return formView();
+  if (view.name === "paste") return pasteView();
+  if (view.name === "show") return showView(view.id);
+  return listView();
 }
 
 // ---- Profile ----
@@ -1148,6 +1178,113 @@ function saveProfileForm() {
   render();
 }
 
+// ---- Restaurants and playgrounds ----
+// Both are stored in one list, told apart by kind ("restaurant" or "playground").
+function placesOf(kind) { return places.filter(p => p.kind === kind); }
+
+function placesSection() {
+  const kind = tabName === "restaurants" ? "restaurant" : "playground";
+  if (pmode.mode !== "list") return placeForm(kind, pmode.id);
+  return kind === "restaurant" ? restaurantsView() : playgroundsView();
+}
+
+function openPlaceForm(kind, id) {
+  tabName = kind === "restaurant" ? "restaurants" : "playgrounds";
+  pmode = { mode: id ? "edit" : "new", id: id || null };
+  render();
+}
+
+function closePlaceForm() {
+  pmode = { mode: "list" };
+  render();
+}
+
+function restaurantsView() {
+  const list = placesOf("restaurant")
+    .sort((a, b) => (b.happyHour ? 1 : 0) - (a.happyHour ? 1 : 0) || a.name.localeCompare(b.name));
+  let h = `<h2>Restaurants</h2>
+    <div class="row-btns"><button class="mini" onclick="openPlaceForm('restaurant')">+ Add restaurant</button></div>
+    <p class="small">⭐ = good Happy Hour. Those are listed first.</p>`;
+  if (!list.length) h += `<p>No restaurants yet.</p>`;
+  for (const p of list) {
+    h += `<div class="line">
+      <span class="ell">${p.happyHour ? "⭐ " : ""}<b>${esc(p.name)}</b>${p.cuisine ? " · " + esc(p.cuisine) : ""}${p.happyHour ? " · Happy Hour" : ""}${p.notes ? " · " + esc(p.notes) : ""}</span>
+      <button class="mini" onclick="openPlaceForm('restaurant','${p.id}')">Edit</button>
+    </div>`;
+  }
+  return h;
+}
+
+function playgroundsView() {
+  const zoneNav = `<div class="subnav">${PLACE_ZONES.map(z =>
+    `<button class="${z === playZone ? "active" : ""}" onclick="setPlayZone('${z}')">${z}</button>`).join("")}</div>`;
+  const list = placesOf("playground").filter(p => p.zone === playZone).sort((a, b) => a.name.localeCompare(b.name));
+  let h = `<h2>Playgrounds</h2>${zoneNav}
+    <div class="row-btns"><button class="mini" onclick="openPlaceForm('playground')">+ Add playground</button></div>`;
+  if (!list.length) h += `<p class="small">No ${playZone} playgrounds yet.</p>`;
+  for (const p of list) {
+    h += `<div class="line">
+      <span class="ell"><b>${esc(p.name)}</b>${p.price ? " · " + esc(p.price) : ""}${p.notes ? " · " + esc(p.notes) : ""}</span>
+      <button class="mini" onclick="openPlaceForm('playground','${p.id}')">Edit</button>
+    </div>`;
+  }
+  return h;
+}
+
+function setPlayZone(z) {
+  playZone = z;
+  render();
+}
+
+// Form for a restaurant or a playground. Fields differ by kind.
+function placeForm(kind, id) {
+  const ex = id ? places.find(p => p.id === id) : null;
+  if (id && !ex) { pmode = { mode: "list" }; return placesSection(); }
+  const p = ex || { name: "", cuisine: "", happyHour: false, zone: playZone, price: "", notes: "" };
+  const isR = kind === "restaurant";
+  const fields = isR
+    ? `<label>Cuisine (optional) <input id="pc" value="${esc(p.cuisine || "")}" placeholder="e.g. Italian"></label>
+       <label class="check"><input type="checkbox" id="phh" ${p.happyHour ? "checked" : ""}> Good Happy Hour ⭐</label>`
+    : `<label>Type <select id="pz">${PLACE_ZONES.map(z => `<option ${z === p.zone ? "selected" : ""}>${z}</option>`).join("")}</select></label>
+       <label>Price (optional, e.g. "€5 per visit") <input id="pp" value="${esc(p.price || "")}"></label>`;
+  return `<h2>${ex ? "Edit" : "New"} ${isR ? "restaurant" : "playground"}</h2>
+    <input id="pn" placeholder="Name" value="${esc(p.name)}">
+    ${fields}
+    <label>Notes (optional) <textarea id="pno" rows="3">${esc(p.notes || "")}</textarea></label>
+    <button onclick="savePlace('${kind}','${id || ""}')">Save</button>
+    <button onclick="closePlaceForm()">Cancel</button>
+    ${ex ? `<button onclick="deletePlace('${id}')">Delete</button>` : ""}`;
+}
+
+function savePlace(kind, id) {
+  const name = document.getElementById("pn").value.trim();
+  if (!name) return alert("Please enter a name.");
+  const data = {
+    kind,
+    name,
+    notes: document.getElementById("pno").value.trim()
+  };
+  if (kind === "restaurant") {
+    data.cuisine = document.getElementById("pc").value.trim();
+    data.happyHour = document.getElementById("phh").checked;
+  } else {
+    data.zone = document.getElementById("pz").value;
+    data.price = document.getElementById("pp").value.trim();
+    playZone = data.zone;
+  }
+  if (id) Object.assign(places.find(x => x.id === id), data);
+  else places.push({ id: uid(), ...data });
+  savePlaces();
+  closePlaceForm();
+}
+
+function deletePlace(id) {
+  if (!confirm("Delete this place?")) return;
+  places = places.filter(p => p.id !== id);
+  savePlaces();
+  closePlaceForm();
+}
+
 // ---- Recipes ----
 // Read-only stars for the recipe list, e.g. ★★★☆☆
 function starsHtml(n) {
@@ -1183,14 +1320,14 @@ function rateRecipe(id, i) {
   render();
 }
 
-// Category tabs (Baking / Cooking / Salad / Soup), then recipes sorted from 5 stars down to unrated.
+// Category tabs, then recipes sorted from 5 stars down to unrated.
 function listView() {
   const shown = recipes
     .filter(r => catOf(r) === recipeCat)
     .filter(r => !view.maxMinutes || r.activeMin <= view.maxMinutes)
     .sort((a, b) => (b.rating || 0) - (a.rating || 0) || a.title.localeCompare(b.title));
   let h = `<div class="subnav">${CATS.map(c =>
-    `<button class="${c === recipeCat ? "active" : ""}" onclick="setRecipeCat('${c}')">${c}</button>`).join("")}</div>
+    `<button class="${c === recipeCat ? "active" : ""}" onclick="setRecipeCat('${c}')">${CAT_LABEL[c]}</button>`).join("")}</div>
   <div class="row-btns">
     <button class="mini" onclick="go('new')">+ Add recipe</button>
     <button class="mini" onclick="document.getElementById('fileInput').click()">Import file</button>
@@ -1198,13 +1335,13 @@ function listView() {
     <button class="mini" onclick="bulkPick('recipes')">Bulk upload</button>
     <button class="mini" onclick="downloadTemplate('recipes')">CSV template</button>
     <button class="mini accent" onclick="go('cooknow')">What can I cook?</button>
-    <button class="mini" onclick="go('top')">🏆 Top 10</button>
+    <button class="mini top-btn" onclick="go('top')">🏆 Top 10</button>
   </div>
     <p class="small">Import accepts PDF, DOCX or TXT. You review everything before it's saved.</p>
     <label>Cooking time: <select onchange="view.maxMinutes=+this.value;render()">
     ${[0, 15, 30, 60].map(v => `<option value="${v}" ${v === view.maxMinutes ? "selected" : ""}>${v ? "up to " + v + " min" : "Any time"}</option>`).join("")}
     </select></label>`;
-  if (!shown.length) h += `<p>No ${recipeCat.toLowerCase()} recipes yet.</p>`;
+  if (!shown.length) h += `<p>No ${cap(recipeCat.toLowerCase())} recipes yet.</p>`;
   for (const r of shown) {
     h += `<div class="card">${r.photo ? `<img class="thumb" src="${r.photo}" alt="">` : ""}
       <div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
@@ -1256,7 +1393,7 @@ function formView() {
     <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none" onchange="pickPhoto(this)">
     <input type="file" id="galInput" accept="image/*" style="display:none" onchange="pickPhoto(this)">
     <input id="t" placeholder="Title" value="${esc(d.title)}">
-    <label>Category <select id="cat">${CATS.map(c => `<option ${c === catNow ? "selected" : ""}>${c}</option>`).join("")}</select></label>
+    <label>Category <select id="cat">${CATS.map(c => `<option value="${c}" ${c === catNow ? "selected" : ""}>${CAT_LABEL[c]}</option>`).join("")}</select></label>
     <label>Serves <input id="s" type="number" value="${d.servings}" min="1"></label>
     <label>Active minutes <input id="a" type="number" min="0" value="${d.activeMin}"></label>
     <label>Total minutes <input id="tot" type="number" min="0" value="${d.totalMin}"></label>
@@ -1307,7 +1444,7 @@ function showView(id) {
     ${r.photo ? `<img class="photo" src="${r.photo}" alt="">` : ""}
     ${allergenBadge(r)}
     ${hasAllergens ? `<div class="small">Based on ingredient names. Always read labels.</div>` : ""}
-    <div class="small">${esc(catOf(r))} · Active ${r.activeMin} min · Total ${r.totalMin} min</div>
+    <div class="small">${esc(CAT_LABEL[catOf(r)])} · Active ${r.activeMin} min · Total ${r.totalMin} min</div>
     <div class="small">Cooked ${r.cookCount || 0}×</div>
     ${calorieLine(r)}
     ${ratingBar(r)}
@@ -1405,7 +1542,7 @@ function swipeView() {
     <div id="card" class="swipe-card">
       ${r.photo ? `<img class="photo" src="${r.photo}" alt="">` : ""}
       <div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
-      <div class="small">${esc(catOf(r))} · Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
+      <div class="small">${esc(CAT_LABEL[catOf(r)])} · Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
       <div class="small">Cooked ${r.cookCount || 0}×</div>
       ${calorieLine(r)}
       ${allergenBadge(r)}
@@ -1502,11 +1639,17 @@ function flyOut(el, dir, done) {
   setTimeout(done, 250);
 }
 
-// ---- Inventory (Fridge / Freezer / Pantry tabs, one line per item) ----
+// ---- Inventory (Freezer / Fridge / Pantry tabs, one line per item) ----
+function inventoryScreen() {
+  if (view.name === "newItem") return itemForm(null);
+  if (view.name === "editItem") return itemForm(inventory.find(x => x.id === view.id));
+  return inventoryView();
+}
+
 // Sorted from expired (most overdue first) to the longest shelf life. Items without a date go last.
 function inventoryView() {
-  const tabsHtml = `<div class="subnav">${STORAGE_OK.map(s =>
-    `<button class="${s === invTab ? "active" : ""}" onclick="setInvTab('${s}')">${cap(s)}</button>`).join("")}</div>`;
+  const tabsHtml = `<div class="storage-nav">${INV_ORDER.map(s =>
+    `<button class="st-${s} ${s === invTab ? "active" : ""}" onclick="setInvTab('${s}')">${cap(s)}</button>`).join("")}</div>`;
   const active = inventory
     .filter(i => !i.used && i.storage === invTab)
     .sort((a, b) => (a.expiry || "9999-12-31").localeCompare(b.expiry || "9999-12-31"));
@@ -1529,7 +1672,7 @@ function inventoryView() {
         : `${d} day${d === 1 ? "" : "s"} left`;
       left = `<span>${txt}</span>`;
     }
-    h += `<div class="line ${urgent ? "warn" : ""}">
+    h += `<div class="line st-${i.storage} ${urgent ? "warn" : ""}">
       <span class="ell"><b>${esc(i.name)}</b> · ${esc(i.qty)} ${esc(unitLabel(i.unit))} · ${left}${exp ? " · " + esc(exp) : ""}</span>
       <button class="mini" onclick="go('editItem','${i.id}')">Edit</button>
       <button class="mini" onclick="useUp('${i.id}')">Used</button>
@@ -1551,7 +1694,7 @@ function itemForm(item) {
     <input id="n" placeholder="Name (e.g. Milk)" value="${esc(i.name)}">
     <label>Quantity <input id="q" value="${esc(i.qty)}"></label>
     <label>Unit ${unitSelect(i.unit)}</label>
-    <label>Storage <select id="st">${STORAGE_OK.map(s => `<option ${s === i.storage ? "selected" : ""}>${s}</option>`).join("")}</select></label>
+    <label>Storage <select id="st">${INV_ORDER.map(s => `<option value="${s}" ${s === i.storage ? "selected" : ""}>${cap(s)}</option>`).join("")}</select></label>
     <label>Exp. date (optional) <input id="e" type="date" value="${i.expiry || ""}"></label>
     <p class="small">If you leave the date empty, an estimate is set from the storage type.</p>
     <button onclick="saveItem('${item ? item.id : ""}')">Save</button>
@@ -1634,7 +1777,7 @@ function bulkInventoryRows(rows) {
     const name = r.name || "";
     if (!name) err.push("name missing");
     const storage = (r.storage || "fridge").toLowerCase();
-    if (!STORAGE_OK.includes(storage)) err.push("storage must be fridge, freezer or pantry");
+    if (!STORAGE_OK.includes(storage)) err.push("storage must be freezer, fridge or pantry");
     let expiry = r.expiry || "";
     let expirySource = "user";
     if (!expiry) {
@@ -2091,22 +2234,26 @@ function uncheckAll() {
 let lang = localStorage.getItem("lang_v1") || "en";
 
 const DE = {
-  "Recipes": "Rezepte", "Inventory": "Vorrat", "Plan": "Plan", "Swipe": "Entdecken", "Profile": "Profil",
-  "Fridge": "Kühlschrank", "Freezer": "Gefrierfach", "Pantry": "Vorratsschrank",
-  "Baking": "Backen", "Cooking": "Kochen", "Salad": "Salat", "Soup": "Suppe", "Category": "Kategorie",
+  "Recipes": "Rezepte", "Restaurants": "Restaurants", "Playgrounds": "Spielplätze",
+  "Inventory": "Vorrat", "Swipe": "Entdecken", "Plan": "Plan",
+  "Freezer": "Gefrierfach", "Fridge": "Kühlschrank", "Pantry": "Vorratsschrank",
+  "🍰 Baking": "🍰 Backen", "🍳 Cooking": "🍳 Kochen", "🥗 Salad": "🥗 Salat", "🍜 Soup": "🍜 Suppe",
+  "Category": "Kategorie", "Cooking time:": "Kochzeit:", "Any time": "Beliebig",
   "+ Add recipe": "+ Rezept", "Import file": "Datei importieren", "Paste text": "Text einfügen",
   "What can I cook?": "Was kann ich kochen?", "Bulk upload": "Massen-Upload", "CSV template": "CSV-Vorlage",
-  "🏆 Top 10": "🏆 Top 10", "Top 10 cooked": "Top 10 gekocht",
+  "🏆 Top 10": "🏆 Top 10", "🏆 Top 10 cooked": "🏆 Top 10 gekocht",
   "Nothing cooked yet. Mark a meal as cooked in the Plan tab.": "Noch nichts gekocht. Markiere eine Mahlzeit im Plan-Tab als gekocht.",
-  "Cooking time:": "Kochzeit:", "Any time": "Beliebig", "No recipes yet.": "Noch keine Rezepte.",
-  "Open": "Öffnen", "Edit": "Bearbeiten", "Print": "Drucken", "Share file": "Datei teilen",
-  "Edit recipe": "Rezept bearbeiten", "Delete recipe": "Rezept löschen", "← Back": "← Zurück",
-  "Save": "Speichern", "Cancel": "Abbrechen", "Rating": "Bewertung", "Ingredients": "Zutaten",
-  "Steps": "Zubereitung", "Servings": "Portionen", "Active minutes": "Aktive Minuten",
-  "Total minutes": "Gesamtzeit (Min.)", "Title": "Titel", "Not rated yet": "Noch nicht bewertet",
-  "+ Add item": "+ Artikel", "Used": "Verbraucht", "Edit item": "Artikel bearbeiten",
-  "New item": "Neuer Artikel", "Quantity": "Menge", "Unit": "Einheit", "Storage": "Lagerort",
-  "Exp. date (optional)": "Verfallsdatum (optional)",
+  "No recipes yet.": "Noch keine Rezepte.", "Open": "Öffnen", "Edit": "Bearbeiten", "Print": "Drucken",
+  "Share file": "Datei teilen", "Edit recipe": "Rezept bearbeiten", "Delete recipe": "Rezept löschen",
+  "← Back": "← Zurück", "Save": "Speichern", "Cancel": "Abbrechen", "Delete": "Löschen",
+  "Rating": "Bewertung", "Ingredients": "Zutaten", "Steps": "Zubereitung", "Servings": "Portionen",
+  "Title": "Titel", "Not rated yet": "Noch nicht bewertet", "Name": "Name", "Notes (optional)": "Notizen (optional)",
+  "Cuisine (optional)": "Küche (optional)", "Good Happy Hour ⭐": "Gute Happy Hour ⭐",
+  "Type": "Art", "Price (optional, e.g. \"€5 per visit\")": "Preis (optional, z. B. \"5 € pro Besuch\")",
+  "+ Add restaurant": "+ Restaurant", "+ Add playground": "+ Spielplatz", "Library": "Bibliothek", "Paid": "Kostenpflichtig",
+  "⭐ = good Happy Hour. Those are listed first.": "⭐ = gute Happy Hour. Diese stehen zuerst.",
+  "+ Add item": "+ Artikel", "Used": "Verbraucht", "Edit item": "Artikel bearbeiten", "New item": "Neuer Artikel",
+  "Quantity": "Menge", "Unit": "Einheit", "Storage": "Lagerort", "Exp. date (optional)": "Verfallsdatum (optional)",
   "Nothing in inventory yet.": "Noch kein Vorrat.", "Add to plan": "Zum Plan hinzufügen",
   "Mark cooked": "Als gekocht markieren", "Cooked": "Gekocht", "Undo": "Rückgängig", "Remove": "Entfernen",
   "Build shopping list": "Einkaufsliste erstellen", "Uncheck all": "Alle abhaken", "Copy list": "Liste kopieren",
