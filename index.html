@@ -42,6 +42,11 @@
     background: var(--accent); border-color: var(--accent); color: #fff;
   }
   .mini { font-size: 13px; padding: 4px 10px; margin: 2px 4px 2px 0; }
+  a.mini {
+    display: inline-block; text-decoration: none; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 999px; background: var(--card);
+    padding: 4px 10px; font-size: 13px; margin: 2px 4px 2px 0;
+  }
   .mini.accent { background: var(--orange); border-color: var(--orange); color: #fff; }
   .top-btn { background: #2e7d32; border-color: #2e7d32; color: #fff; }
   .btn-pass { background: #c62828; border-color: #c62828; color: #fff; font-size: 18px; padding: 12px 22px; }
@@ -125,6 +130,7 @@
     padding: 10px 12px; font-size: 15px; margin-bottom: 10px;
   }
   .small { color: var(--muted); font-size: 14px; }
+  .driveb { font-weight: 700; color: #1d5fa8; margin: 2px 0; }
   .alert { color: var(--danger); font-weight: 600; font-size: 14px; margin: 4px 0; }
   .done { text-decoration: line-through; color: #9a9a9f; }
 
@@ -343,12 +349,14 @@ let places = JSON.parse(localStorage.getItem(PLKEY) || "[]");
 let shop = JSON.parse(localStorage.getItem(SKEY) || '{"checked":{},"manual":[]}');
 let lastCook = JSON.parse(localStorage.getItem(LKEY) || "null");
 let swipe = JSON.parse(localStorage.getItem(SWKEY) || '{"liked":[],"passed":[]}');
-let profile = { defaultServings: 4, allergens: [], showCalories: true, ...JSON.parse(localStorage.getItem(PRKEY) || "{}") };
+let profile = { defaultServings: 4, allergens: [], showCalories: true, homeAddress: "", ...JSON.parse(localStorage.getItem(PRKEY) || "{}") };
 let tabName = "recipes";
 let invTab = "fridge";
 let recipeCat = DEFAULT_CAT;
 let playZone = "FREE";
 let pmode = { mode: "list" };
+let distMsg = "";
+let distanceBusy = false;
 let view = { name: "list", maxMinutes: 0 };
 let planDraft = { date: isoDate(new Date()), meal: "dinner", recipeId: "", servings: "", from: isoDate(new Date()), to: addDays(6), manual: "" };
 let shopResult = null;
@@ -377,6 +385,7 @@ function changed() {
 // ---- Helpers ----
 function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 function isoDate(d) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
 function addDays(n) { const d = new Date(); d.setDate(d.getDate() + n); return isoDate(d); }
 function daysUntil(dateStr) {
@@ -644,7 +653,7 @@ async function uploadSnapshot(snap) {
 }
 
 function snapshot() {
-  return { version: 2, updatedAt: localUpdated(), recipes, inventory, plan, places, shop, swipe, profile };
+  return { version: 3, updatedAt: localUpdated(), recipes, inventory, plan, places, shop, swipe, profile };
 }
 
 function applySnapshot(s) {
@@ -654,7 +663,7 @@ function applySnapshot(s) {
   places = s.places || [];
   shop = s.shop || { checked: {}, manual: [] };
   swipe = s.swipe || { liked: [], passed: [] };
-  profile = { defaultServings: 4, allergens: [], showCalories: true, ...(s.profile || {}) };
+  profile = { defaultServings: 4, allergens: [], showCalories: true, homeAddress: "", ...(s.profile || {}) };
   localStorage.setItem(RKEY, JSON.stringify(recipes));
   localStorage.setItem(IKEY, JSON.stringify(inventory));
   localStorage.setItem(PKEY, JSON.stringify(plan));
@@ -1080,6 +1089,7 @@ function tab(t) {
   pmode = { mode: "list" };
   view = { name: "list", maxMinutes: 0 };
   render();
+  if (t === "restaurants" || t === "playgrounds") updatePlaceDistances();
 }
 function go(name, id) {
   view = { name, maxMinutes: view.maxMinutes, id, servings: null, recipeId: null };
@@ -1147,9 +1157,16 @@ function recipeSection() {
 function profileView() {
   const boxes = ALLERGENS.map(a =>
     `<label><input type="checkbox" id="al_${a.key}" ${profile.allergens.includes(a.key) ? "checked" : ""}>${a.label}</label>`).join("");
+  const homeState = profile.homeAddress
+    ? (profile.homeLat != null ? `<p class="small">✓ Location found. Driving times are shown on Restaurants and Playgrounds.</p>` : `<p class="small">Looking up location… it appears after you save.</p>`)
+    : `<p class="small">No home address yet.</p>`;
   return `<h2>Household profile</h2>
     <button onclick="toggleLang()">${lang === "de" ? "English" : "Deutsch"}</button>
     <label>Default servings for new recipes <input id="pServ" type="number" min="1" max="12" value="${profile.defaultServings}"></label>
+    <h3>Home address</h3>
+    <p class="small">Used to calculate driving time to restaurants and playgrounds.</p>
+    <input id="pHome" placeholder="Street, postcode, city" value="${esc(profile.homeAddress || "")}">
+    ${homeState}
     <h3>Allergies</h3>
     <p class="small">Recipes that contain these show a red warning. Warnings are based on ingredient names, so always read labels.</p>
     <div class="check-grid">${boxes}</div>
@@ -1168,24 +1185,116 @@ function profileView() {
 }
 
 function saveProfileForm() {
+  const newAddr = document.getElementById("pHome").value.trim();
+  const addrChanged = newAddr !== (profile.homeAddress || "");
   profile = {
+    ...profile,
     defaultServings: +document.getElementById("pServ").value || 4,
     allergens: ALLERGENS.filter(a => document.getElementById("al_" + a.key).checked).map(a => a.key),
-    showCalories: document.getElementById("pCal").checked
+    showCalories: document.getElementById("pCal").checked,
+    homeAddress: newAddr
   };
+  if (addrChanged) { profile.homeLat = null; profile.homeLng = null; profile.homeFor = ""; }
   saveProfile();
-  alert("Profile saved.");
-  render();
+  if (addrChanged && newAddr) {
+    alert("Profile saved. Looking up your home address…");
+    updateHome();
+  } else {
+    alert("Profile saved.");
+    render();
+  }
+}
+
+// ---- Addresses and driving time (OpenStreetMap lookup + OSRM route service, both free) ----
+async function geocodeAddress(addr) {
+  const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(addr);
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("address lookup failed (" + r.status + ")");
+  const d = await r.json();
+  if (!d.length) throw new Error("address not found");
+  return { lat: parseFloat(d[0].lat), lng: parseFloat(d[0].lon) };
+}
+
+// Driving time in whole minutes between two points (free-flow estimate, no live traffic).
+async function drivingMinutes(fromLat, fromLng, toLat, toLng) {
+  const url = `https://router.project-osrm.org/route/v1/driving/${fromLng},${fromLat};${toLng},${toLat}?overview=false`;
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("route lookup failed (" + r.status + ")");
+  const d = await r.json();
+  if (!d.routes || !d.routes.length) throw new Error("no driving route found");
+  return Math.round(d.routes[0].duration / 60);
+}
+
+// Looks up the home address once and recalculates all places.
+async function updateHome() {
+  const addr = (profile.homeAddress || "").trim();
+  if (!addr) return;
+  try {
+    const c = await geocodeAddress(addr);
+    profile.homeLat = c.lat;
+    profile.homeLng = c.lng;
+    profile.homeFor = addr;
+    saveProfile();
+    render();
+    await updatePlaceDistances();
+  } catch (e) {
+    alert("Could not find the home address (" + e.message + "). Check the spelling, e.g. 'Musterstraße 1, 12345 Berlin'.");
+    render();
+  }
+}
+
+// Calculates driving time for every place whose address or home address changed.
+// Each address is looked up once and stored, so it is not repeated every time.
+async function updatePlaceDistances() {
+  if (distanceBusy || profile.homeLat == null) return;
+  const todo = places.filter(p => p.address && (p.homeFor !== profile.homeFor || p.addrFor !== p.address));
+  if (!todo.length) return;
+  distanceBusy = true;
+  for (const p of todo) {
+    distMsg = `Calculating driving time for ${p.name}…`;
+    if (tabName === "restaurants" || tabName === "playgrounds") render();
+    try {
+      if (p.addrFor !== p.address || p.lat == null) {
+        const c = await geocodeAddress(p.address);
+        p.lat = c.lat;
+        p.lng = c.lng;
+        p.addrFor = p.address;
+        await sleep(1100); // public geocoder allows about one request per second
+      }
+      p.driveMin = await drivingMinutes(profile.homeLat, profile.homeLng, p.lat, p.lng);
+      p.distErr = "";
+    } catch (e) {
+      p.driveMin = null;
+      p.distErr = e.message;
+    }
+    p.homeFor = profile.homeFor;
+    await sleep(400);
+  }
+  distanceBusy = false;
+  distMsg = "";
+  savePlaces();
+  if (tabName === "restaurants" || tabName === "playgrounds") render();
 }
 
 // ---- Restaurants and playgrounds ----
 // Both are stored in one list, told apart by kind ("restaurant" or "playground").
 function placesOf(kind) { return places.filter(p => p.kind === kind); }
 
+// Sort by 5-star rating first (highest on top, unrated at the bottom), then by driving time.
+function byRatingThenDrive(a, b) {
+  return (b.rating || 0) - (a.rating || 0)
+    || (a.driveMin ?? 9999) - (b.driveMin ?? 9999)
+    || a.name.localeCompare(b.name);
+}
+
 function placesSection() {
   const kind = tabName === "restaurants" ? "restaurant" : "playground";
   if (pmode.mode !== "list") return placeForm(kind, pmode.id);
-  return kind === "restaurant" ? restaurantsView() : playgroundsView();
+  const note = distMsg ? `<p class="small">${esc(distMsg)}</p>` : "";
+  const noHome = !profile.homeAddress
+    ? `<p class="small">Set your home address in ⚙ Profile to see driving time from home.</p>`
+    : "";
+  return note + noHome + (kind === "restaurant" ? restaurantsView() : playgroundsView());
 }
 
 function openPlaceForm(kind, id) {
@@ -1199,16 +1308,38 @@ function closePlaceForm() {
   render();
 }
 
+// Driving time line under each place.
+function driveLine(p) {
+  if (!profile.homeAddress) return `<div class="small">Set your home address in ⚙ Profile to see driving time.</div>`;
+  if (!p.address) return `<div class="small">Add an address to see driving time.</div>`;
+  if (p.distErr) return `<div class="small">Driving time not found: ${esc(p.distErr)}. Check the address.</div>`;
+  if (p.driveMin == null) return `<div class="small">Driving time is being calculated…</div>`;
+  return `<div class="driveb">🚗 ${p.driveMin} min from home</div>`;
+}
+
+function navLink(p) {
+  if (!p.address) return "";
+  const url = "https://www.google.com/maps/dir/?api=1&destination=" + encodeURIComponent(p.address);
+  return `<a class="mini" href="${url}" target="_blank" rel="noopener">Navigate</a>`;
+}
+
 function restaurantsView() {
-  const list = placesOf("restaurant")
-    .sort((a, b) => (b.happyHour ? 1 : 0) - (a.happyHour ? 1 : 0) || a.name.localeCompare(b.name));
+  const list = placesOf("restaurant").sort((a, b) =>
+    (b.rating || 0) - (a.rating || 0)
+    || (b.happyHour ? 1 : 0) - (a.happyHour ? 1 : 0)
+    || (a.driveMin ?? 9999) - (b.driveMin ?? 9999)
+    || a.name.localeCompare(b.name));
   let h = `<h2>Restaurants</h2>
     <div class="row-btns"><button class="mini" onclick="openPlaceForm('restaurant')">+ Add restaurant</button></div>
-    <p class="small">⭐ = good Happy Hour. Those are listed first.</p>`;
+    <p class="small">⭐ = good Happy Hour. Sorted by rating, then Happy Hour, then driving time.</p>`;
   if (!list.length) h += `<p>No restaurants yet.</p>`;
   for (const p of list) {
-    h += `<div class="line">
-      <span class="ell">${p.happyHour ? "⭐ " : ""}<b>${esc(p.name)}</b>${p.cuisine ? " · " + esc(p.cuisine) : ""}${p.happyHour ? " · Happy Hour" : ""}${p.notes ? " · " + esc(p.notes) : ""}</span>
+    h += `<div class="card">
+      <div class="head"><b>${p.happyHour ? "⭐ " : ""}${esc(p.name)}</b>${starsInline(p.rating)}</div>
+      ${p.address ? `<div class="small">📍 ${esc(p.address)}</div>` : ""}
+      ${driveLine(p)}
+      <div class="small">${[p.cuisine, p.happyHour ? "Happy Hour" : "", p.notes].filter(Boolean).map(esc).join(" · ")}</div>
+      ${navLink(p)}
       <button class="mini" onclick="openPlaceForm('restaurant','${p.id}')">Edit</button>
     </div>`;
   }
@@ -1218,13 +1349,17 @@ function restaurantsView() {
 function playgroundsView() {
   const zoneNav = `<div class="subnav">${PLACE_ZONES.map(z =>
     `<button class="${z === playZone ? "active" : ""}" onclick="setPlayZone('${z}')">${z}</button>`).join("")}</div>`;
-  const list = placesOf("playground").filter(p => p.zone === playZone).sort((a, b) => a.name.localeCompare(b.name));
+  const list = placesOf("playground").filter(p => p.zone === playZone).sort(byRatingThenDrive);
   let h = `<h2>Playgrounds</h2>${zoneNav}
     <div class="row-btns"><button class="mini" onclick="openPlaceForm('playground')">+ Add playground</button></div>`;
   if (!list.length) h += `<p class="small">No ${playZone} playgrounds yet.</p>`;
   for (const p of list) {
-    h += `<div class="line">
-      <span class="ell"><b>${esc(p.name)}</b>${p.price ? " · " + esc(p.price) : ""}${p.notes ? " · " + esc(p.notes) : ""}</span>
+    h += `<div class="card">
+      <div class="head"><b>${esc(p.name)}</b>${starsInline(p.rating)}</div>
+      ${p.address ? `<div class="small">📍 ${esc(p.address)}</div>` : ""}
+      ${driveLine(p)}
+      <div class="small">${[p.price, p.notes].filter(Boolean).map(esc).join(" · ")}</div>
+      ${navLink(p)}
       <button class="mini" onclick="openPlaceForm('playground','${p.id}')">Edit</button>
     </div>`;
   }
@@ -1240,7 +1375,7 @@ function setPlayZone(z) {
 function placeForm(kind, id) {
   const ex = id ? places.find(p => p.id === id) : null;
   if (id && !ex) { pmode = { mode: "list" }; return placesSection(); }
-  const p = ex || { name: "", cuisine: "", happyHour: false, zone: playZone, price: "", notes: "" };
+  const p = ex || { name: "", address: "", cuisine: "", happyHour: false, zone: playZone, price: "", notes: "", rating: 0 };
   const isR = kind === "restaurant";
   const fields = isR
     ? `<label>Cuisine (optional) <input id="pc" value="${esc(p.cuisine || "")}" placeholder="e.g. Italian"></label>
@@ -1249,7 +1384,10 @@ function placeForm(kind, id) {
        <label>Price (optional, e.g. "€5 per visit") <input id="pp" value="${esc(p.price || "")}"></label>`;
   return `<h2>${ex ? "Edit" : "New"} ${isR ? "restaurant" : "playground"}</h2>
     <input id="pn" placeholder="Name" value="${esc(p.name)}">
+    <label>Address (for driving time) <input id="pa" placeholder="Street, postcode, city" value="${esc(p.address || "")}"></label>
     ${fields}
+    <label>Rating</label>
+    ${ratingPicker(p.rating)}
     <label>Notes (optional) <textarea id="pno" rows="3">${esc(p.notes || "")}</textarea></label>
     <button onclick="savePlace('${kind}','${id || ""}')">Save</button>
     <button onclick="closePlaceForm()">Cancel</button>
@@ -1259,9 +1397,12 @@ function placeForm(kind, id) {
 function savePlace(kind, id) {
   const name = document.getElementById("pn").value.trim();
   if (!name) return alert("Please enter a name.");
+  const address = document.getElementById("pa").value.trim();
   const data = {
     kind,
     name,
+    address,
+    rating: +document.getElementById("ratingData").value || 0,
     notes: document.getElementById("pno").value.trim()
   };
   if (kind === "restaurant") {
@@ -1272,10 +1413,14 @@ function savePlace(kind, id) {
     data.price = document.getElementById("pp").value.trim();
     playZone = data.zone;
   }
+  if (!address) {
+    data.lat = null; data.lng = null; data.addrFor = ""; data.driveMin = null; data.homeFor = ""; data.distErr = "";
+  }
   if (id) Object.assign(places.find(x => x.id === id), data);
   else places.push({ id: uid(), ...data });
   savePlaces();
   closePlaceForm();
+  updatePlaceDistances();
 }
 
 function deletePlace(id) {
@@ -2250,9 +2395,16 @@ const DE = {
   "Title": "Titel", "Not rated yet": "Noch nicht bewertet", "Name": "Name", "Notes (optional)": "Notizen (optional)",
   "Cuisine (optional)": "Küche (optional)", "Good Happy Hour ⭐": "Gute Happy Hour ⭐",
   "Type": "Art", "Price (optional, e.g. \"€5 per visit\")": "Preis (optional, z. B. \"5 € pro Besuch\")",
+  "Address (for driving time)": "Adresse (für Fahrzeit)", "Street, postcode, city": "Straße, PLZ, Ort",
+  "Home address": "Heimatadresse", "Navigate": "Navigieren",
+  "Used to calculate driving time to restaurants and playgrounds.": "Wird für die Fahrzeit zu Restaurants und Spielplätzen genutzt.",
+  "Set your home address in ⚙ Profile to see driving time from home.": "Trage deine Heimatadresse unter ⚙ Profil ein, um die Fahrzeit zu sehen.",
+  "Set your home address in ⚙ Profile to see driving time.": "Trage deine Heimatadresse unter ⚙ Profil ein, um die Fahrzeit zu sehen.",
+  "Add an address to see driving time.": "Adresse eintragen, um die Fahrzeit zu sehen.",
+  "Driving time is being calculated…": "Fahrzeit wird berechnet…",
   "+ Add restaurant": "+ Restaurant", "+ Add playground": "+ Spielplatz", "Library": "Bibliothek", "Paid": "Kostenpflichtig",
-  "⭐ = good Happy Hour. Those are listed first.": "⭐ = gute Happy Hour. Diese stehen zuerst.",
-  "+ Add item": "+ Artikel", "Used": "Verbraucht", "Edit item": "Artikel bearbeiten", "New item": "Neuer Artikel",
+  "⭐ = good Happy Hour. Sorted by rating, then Happy Hour, then driving time.": "⭐ = gute Happy Hour. Sortiert nach Bewertung, dann Happy Hour, dann Fahrzeit.",
+  "+ Item": "+ Artikel", "+ Add item": "+ Artikel", "Used": "Verbraucht", "Edit item": "Artikel bearbeiten", "New item": "Neuer Artikel",
   "Quantity": "Menge", "Unit": "Einheit", "Storage": "Lagerort", "Exp. date (optional)": "Verfallsdatum (optional)",
   "Nothing in inventory yet.": "Noch kein Vorrat.", "Add to plan": "Zum Plan hinzufügen",
   "Mark cooked": "Als gekocht markieren", "Cooked": "Gekocht", "Undo": "Rückgängig", "Remove": "Entfernen",
@@ -2291,7 +2443,8 @@ const DE_PATTERNS = [
   [/^Exp\. (.+)$/, "Verf. $1"],
   [/^(\d+) days? left$/, "noch $1 Tag(e)"],
   [/^expired (\d+) days? ago$/, "abgelaufen vor $1 Tag(en)"],
-  [/^expires today$/, "läuft heute ab"]
+  [/^expires today$/, "läuft heute ab"],
+  [/^🚗 (\d+) min from home$/, "🚗 $1 Min. von zu Hause"]
 ];
 
 // Translates one piece of text. The English original is kept on each text node so switching back works.
