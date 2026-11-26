@@ -1933,4 +1933,216 @@ function markCooked(id) {
 // Restores inventory and the cook count to how they were before the last Mark cooked.
 function undoCook() {
   if (!lastCook) return;
-  if (!confirm("Undo the last Mark cooked? Inventory and the cook count go back to how they were before, so
+  if (!confirm("Undo the last Mark cooked? Inventory and the cook count go back to how they were before, so any edits made since are lost.")) return;
+  inventory = JSON.parse(lastCook.inventory);
+  saveInventory();
+  const e = plan.find(x => x.id === lastCook.planId);
+  if (e) e.cooked = false;
+  savePlan();
+  const rec = recipes.find(x => x.id === lastCook.recipeId);
+  if (rec) rec.cookCount = Math.max(0, (rec.cookCount || 1) - 1);
+  save();
+  lastCook = null;
+  localStorage.removeItem(LKEY);
+  render();
+}
+
+function computeShopping(from, to) {
+  const needs = {};
+  const unparsed = [];
+  for (const e of plan) {
+    if (e.date < from || e.date > to) continue;
+    const r = recipes.find(x => x.id === e.recipeId);
+    if (!r) continue;
+    const f = e.servings / r.servings;
+    for (const line of r.ingredients) {
+      const p = parseIng(line);
+      if (p.qty === null || !p.name) { unparsed.push(line); continue; }
+      const need = normalizeNeed(p.qty * f, p.unit, p.name);
+      const key = p.name + "|" + need.kind;
+      if (!needs[key]) needs[key] = { name: p.name, kind: need.kind, base: 0 };
+      needs[key].base += need.amount;
+    }
+  }
+
+  const invItems = inventory.filter(i => !i.used);
+  const rows = Object.entries(needs).map(([key, n]) => {
+    let have = 0;
+    const notCompared = [];
+    for (const it of invItems) {
+      if (!namesMatch(it.name, n.name)) continue;
+      const q = parseQty(it.qty || "");
+      if (!q) continue;
+      const avail = amountIn(n.kind, q.v, normUnit(it.unit), it.name);
+      if (avail === null) notCompared.push(`${it.qty} ${unitLabel(it.unit)} ${it.name}`.trim());
+      else have += avail;
+    }
+    return {
+      key, name: n.name, kind: n.kind,
+      need: n.base, have,
+      buy: Math.max(0, n.base - have),
+      notCompared
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+  return { rows, unparsed };
+}
+
+function buildShop() {
+  shopResult = computeShopping(planDraft.from, planDraft.to);
+  render();
+}
+
+function toggleCheck(idx) {
+  const r = shopResult.rows[idx];
+  shop.checked[r.key] = !shop.checked[r.key];
+  saveShop();
+  render();
+}
+
+function addManual() {
+  const name = planDraft.manual.trim();
+  if (!name) return alert("Type an item first.");
+  shop.manual.push({ id: uid(), name, checked: false });
+  planDraft.manual = "";
+  saveShop();
+  render();
+}
+
+function toggleManual(id) {
+  const m = shop.manual.find(x => x.id === id);
+  if (m) m.checked = !m.checked;
+  saveShop();
+  render();
+}
+
+function removeManual(id) {
+  shop.manual = shop.manual.filter(x => x.id !== id);
+  saveShop();
+  render();
+}
+
+function uncheckAll() {
+  shop.checked = {};
+  shop.manual.forEach(m => m.checked = false);
+  saveShop();
+  render();
+}
+
+// ---- Language (English / German) ----
+let lang = localStorage.getItem("lang_v1") || "en";
+
+const DE = {
+  "Recipes": "Rezepte", "Inventory": "Vorrat", "Plan": "Plan", "Swipe": "Entdecken", "Profile": "Profil",
+  "Fridge": "Kühlschrank", "Freezer": "Gefrierfach", "Pantry": "Vorratsschrank",
+  "+ Add recipe": "+ Rezept", "Import file": "Datei importieren", "Paste text": "Text einfügen",
+  "What can I cook?": "Was kann ich kochen?", "Bulk upload": "Massen-Upload", "CSV template": "CSV-Vorlage",
+  "🏆 Top 10": "🏆 Top 10", "Top 10 cooked": "Top 10 gekocht",
+  "Nothing cooked yet. Mark a meal as cooked in the Plan tab.": "Noch nichts gekocht. Markiere eine Mahlzeit im Plan-Tab als gekocht.",
+  "Cooking time:": "Kochzeit:", "Any time": "Beliebig", "No recipes yet.": "Noch keine Rezepte.",
+  "Open": "Öffnen", "Edit": "Bearbeiten", "Print": "Drucken", "Share file": "Datei teilen",
+  "Edit recipe": "Rezept bearbeiten", "Delete recipe": "Rezept löschen", "← Back": "← Zurück",
+  "Save": "Speichern", "Cancel": "Abbrechen", "Rating": "Bewertung", "Ingredients": "Zutaten",
+  "Steps": "Zubereitung", "Servings": "Portionen", "Active minutes": "Aktive Minuten",
+  "Total minutes": "Gesamtzeit (Min.)", "Title": "Titel", "Not rated yet": "Noch nicht bewertet",
+  "+ Add item": "+ Artikel", "Used": "Verbraucht", "Edit item": "Artikel bearbeiten",
+  "New item": "Neuer Artikel", "Quantity": "Menge", "Unit": "Einheit", "Storage": "Lagerort",
+  "Exp. date (optional)": "Verfallsdatum (optional)",
+  "Nothing in inventory yet.": "Noch kein Vorrat.", "Add to plan": "Zum Plan hinzufügen",
+  "Mark cooked": "Als gekocht markieren", "Cooked": "Gekocht", "Undo": "Rückgängig", "Remove": "Entfernen",
+  "Build shopping list": "Einkaufsliste erstellen", "Uncheck all": "Alle abhaken", "Copy list": "Liste kopieren",
+  "Extra items": "Extra-Artikel", "Add": "Hinzufügen", "Shopping list": "Einkaufsliste",
+  "Household profile": "Haushaltsprofil", "Default servings for new recipes": "Standard-Portionen für neue Rezepte",
+  "Allergies": "Allergien", "Calories": "Kalorien", "Show calorie estimates": "Kalorienschätzung anzeigen",
+  "Shared kitchen": "Gemeinsame Küche", "Open shared kitchen": "Gemeinsame Küche öffnen",
+  "Family view": "Familienansicht", "Update family view": "Familienansicht aktualisieren",
+  "Save profile": "Profil speichern", "Inspiration": "Inspiration", "✕ Pass": "✕ Weiter",
+  "♥ Save": "♥ Merken", "Show all again": "Alle wieder anzeigen", "Saved": "Gemerkt", "Passed": "Weitergeklickt",
+  "Take photo": "Foto aufnehmen", "📷 Take photo": "📷 Foto aufnehmen", "🖼 Choose photo": "🖼 Foto wählen",
+  "Remove photo": "Foto entfernen", "New recipe": "Neues Rezept", "Review recipe": "Rezept prüfen",
+  "Paste recipe text": "Rezepttext einfügen", "Continue to review": "Weiter zur Prüfung",
+  "Meal plan": "Wochenplan", "Choose a recipe…": "Rezept wählen…", "Nothing planned yet.": "Noch nichts geplant.",
+  "From": "Von", "To": "Bis", "Date": "Datum", "Meal": "Mahlzeit", "Recipe": "Rezept",
+  "Add a recipe first, then you can plan it here.": "Erst ein Rezept hinzufügen, dann hier planen.",
+  "Add some recipes first, then swipe through them here.": "Erst Rezepte hinzufügen, dann hier durchblättern.",
+  "You've seen all your recipes.": "Du hast alle Rezepte gesehen.",
+  "Nothing saved yet.": "Noch nichts gemerkt.", "Nothing passed yet.": "Noch nichts weitergeklickt.",
+  "Nothing to buy for this range.": "Nichts zu kaufen in diesem Zeitraum.",
+  "breakfast": "Frühstück", "lunch": "Mittagessen", "dinner": "Abendessen", "snack": "Snack",
+  "pcs (count)": "Stück", "Name (e.g. Milk)": "Name (z. B. Milch)",
+  "Import accepts PDF, DOCX or TXT. You review everything before it's saved.": "Import: PDF, DOCX oder TXT. Du prüfst alles, bevor es gespeichert wird.",
+  "Recipes that contain these show a red warning. Warnings are based on ingredient names, so always read labels.":
+    "Rezepte mit diesen Zutaten zeigen eine rote Warnung. Die Prüfung basiert auf Zutatennamen, bitte immer Etiketten lesen.",
+  "Manual entry": "Manuelle Eingabe"
+};
+
+const DE_PATTERNS = [
+  [/^Active (\d+) min · Total (\d+) min · Serves (\d+)$/, "Aktiv $1 Min. · Gesamt $2 Min. · Portionen $3"],
+  [/^Active (\d+) min · Total (\d+) min$/, "Aktiv $1 Min. · Gesamt $2 Min."],
+  [/^Active (\d+) min · Serves (\d+)$/, "Aktiv $1 Min. · Portionen $2"],
+  [/^Serves (\d+) · Active (\d+) min · Total (\d+) min$/, "Portionen $1 · Aktiv $2 Min. · Gesamt $3 Min."],
+  [/^Cooked (\d+)×$/, "Gekocht $1×"],
+  [/^Exp\. (.+)$/, "Verf. $1"],
+  [/^(\d+) days? left$/, "noch $1 Tag(e)"],
+  [/^expired (\d+) days? ago$/, "abgelaufen vor $1 Tag(en)"],
+  [/^expires today$/, "läuft heute ab"]
+];
+
+// Translates one piece of text. The English original is kept on each text node so switching back works.
+function translateText(en) {
+  if (lang !== "de") return en;
+  const k = en.trim();
+  if (!k) return en;
+  if (DE[k]) return en.replace(k, () => DE[k]);
+  for (const [re, rep] of DE_PATTERNS) {
+    if (re.test(k)) return en.replace(k, () => k.replace(re, rep));
+  }
+  return en;
+}
+
+// Walks the page's text and applies the chosen language.
+function applyLang() {
+  document.documentElement.lang = lang;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  while (walker.nextNode()) nodes.push(walker.currentNode);
+  for (const node of nodes) {
+    const parent = node.parentNode;
+    if (!parent || ["SCRIPT", "STYLE", "TEXTAREA"].includes(parent.nodeName)) continue;
+    if (parent.closest && parent.closest("#print")) continue;
+    if (node._en === undefined) node._en = node.nodeValue;
+    node.nodeValue = translateText(node._en);
+  }
+  document.querySelectorAll("input[placeholder], textarea[placeholder]").forEach(el => {
+    if (!el._enPh) el._enPh = el.placeholder;
+    el.placeholder = lang === "de" && DE[el._enPh] ? DE[el._enPh] : el._enPh;
+  });
+}
+
+function toggleLang() {
+  lang = lang === "de" ? "en" : "de";
+  localStorage.setItem("lang_v1", lang);
+  applyLang();
+  render();
+}
+
+// Every screen refresh also applies the chosen language.
+const renderBase = render;
+render = function () { renderBase(); applyLang(); };
+
+// ---- Start ----
+window.addEventListener("load", () => {
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  const ready = initAuth();
+  driveFileId = localStorage.getItem(SHARED_KEY) || driveFileId;
+  if (isConnected() && ready) syncNow();
+  else if (!isConnected()) setSyncStatus("Not connected. Recipes are saved on this device only.");
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && isConnected()) syncNow();
+});
+
+render();
+</script>
+</body>
+</html>
