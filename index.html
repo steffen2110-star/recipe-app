@@ -81,9 +81,22 @@
   .ell { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .line input[type=checkbox] { margin: 0; flex: none; }
 
+  .plan-add { display: flex; gap: 4px; align-items: center; margin: 6px 0 10px; }
+  .plan-add > * { flex: none; margin: 0; font-size: 14px; padding: 7px 8px; }
+  .plan-add .pa-recipe { flex: 1 1 auto; min-width: 0; width: auto; }
+  .plan-add .pa-date { width: 124px; }
+  .plan-add .pa-meal { width: 98px; }
+  .plan-add .pa-serv { width: 58px; }
+  .plan-add button { border-radius: 10px; }
+
   .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .head b { font-size: 18px; }
   .head h2 { margin: 12px 0 8px; }
+
+  .top-wrap {
+    background: #dcf2e0; border: 1px solid #9fd3ab; border-radius: var(--radius);
+    padding: 12px; margin-top: 8px;
+  }
 
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
@@ -112,14 +125,23 @@
   .row > * { flex: 1 1 140px; }
   .check-grid label { display: block; margin: 8px 0; font-size: 16px; color: var(--ink); }
 
-  .swipe-wrap { margin: 12px 0; }
+  .swipe-wrap { position: relative; margin: 12px 0; }
   .swipe-card {
     background: var(--card); border: 1px solid var(--line); border-radius: 18px;
     padding: 20px; box-shadow: 0 6px 18px rgba(0,0,0,.08);
     touch-action: none; user-select: none;
   }
   .swipe-card ul { padding-left: 20px; }
-  .hint { font-weight: 700; min-height: 24px; }
+  .hint {
+    position: absolute; top: 40%; left: 50%;
+    transform: translate(-50%, -50%) scale(.85);
+    font-size: 34px; font-weight: 800; letter-spacing: 1px;
+    padding: 8px 20px; border-radius: 14px; border: 4px solid;
+    background: rgba(255,255,255,.92); opacity: 0; pointer-events: none;
+    z-index: 5; transition: opacity .1s ease, transform .1s ease;
+  }
+  .hint.save { opacity: 1; color: #2e7d32; border-color: #2e7d32; transform: translate(-50%, -50%) scale(1); }
+  .hint.pass { opacity: 1; color: #c62828; border-color: #c62828; transform: translate(-50%, -50%) scale(1); }
   .swipe-btns { justify-content: center; margin: 8px 0 12px; }
 
   .photo { width: 100%; max-height: 260px; object-fit: cover; border-radius: var(--radius); margin: 8px 0; display: block; }
@@ -188,6 +210,8 @@ const FAMILY_KEY = "family_doc_v1";
 const DEFAULT_DAYS = { fridge: 7, freezer: 90, pantry: 30 };
 const MEALS = ["breakfast", "lunch", "dinner", "snack"];
 const STORAGE_OK = ["fridge", "freezer", "pantry"];
+const CATS = ["Baking", "Cooking", "Salad", "Soup"];
+const DEFAULT_CAT = "Cooking";
 
 // Pantry basics that are ignored in "What can I cook?"
 const STAPLES = ["salt", "pepper", "black pepper", "water", "oil", "olive oil", "vegetable oil"];
@@ -303,6 +327,7 @@ let swipe = JSON.parse(localStorage.getItem(SWKEY) || '{"liked":[],"passed":[]}'
 let profile = { defaultServings: 4, allergens: [], showCalories: true, ...JSON.parse(localStorage.getItem(PRKEY) || "{}") };
 let tabName = "recipes";
 let invTab = "fridge";
+let recipeCat = DEFAULT_CAT;
 let view = { name: "list", maxMinutes: 0 };
 let planDraft = { date: isoDate(new Date()), meal: "dinner", recipeId: "", servings: "", from: isoDate(new Date()), to: addDays(6), manual: "" };
 let shopResult = null;
@@ -342,10 +367,17 @@ function niceDate(s) {
   const [y, m, d] = s.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
-// Date as DD.MM.YYYY (locale-independent numbers)
+// Date as DD.MM.YYYY
 function fmtDate(s) {
   const [y, m, d] = s.split("-");
   return `${d}.${m}.${y}`;
+}
+// Recipes saved before categories existed count as Cooking.
+function catOf(r) { return CATS.includes(r.category) ? r.category : DEFAULT_CAT; }
+// Accepts any capitalisation from a CSV file; unknown values become Cooking.
+function normCat(v) {
+  const f = CATS.find(c => c.toLowerCase() === String(v || "").trim().toLowerCase());
+  return f || DEFAULT_CAT;
 }
 
 function parseQty(s) {
@@ -723,7 +755,7 @@ function familyLinkHtml() {
 // Builds a simple HTML page. Google Drive converts it into a Google Doc.
 function familyHtml() {
   const recs = recipes.map(r => `<h2>${esc(r.title)}</h2>
-    <p>Serves ${r.servings} · Active ${r.activeMin} min · Total ${r.totalMin} min${r.rating ? " · Rating " + r.rating + "/5" : ""}</p>
+    <p>${esc(catOf(r))} · Serves ${r.servings} · Active ${r.activeMin} min · Total ${r.totalMin} min${r.rating ? " · Rating " + r.rating + "/5" : ""}</p>
     <h3>Ingredients</h3><ul>${r.ingredients.map(i => `<li>${esc(i)}</li>`).join("")}</ul>
     <h3>Steps</h3><ol>${r.steps.map(s => `<li>${esc(tempText(s))}</li>`).join("")}</ol>`).join("");
   const inv = inventory.filter(i => !i.used).map(i =>
@@ -917,7 +949,7 @@ function recipeDocBody(r, f) {
   const srv = fmt(r.servings * f);
   const found = recipeAllergens(r).map(a => a.label);
   return `<h1>${esc(r.title)}</h1>
-    <p>Serves ${srv} · Active ${r.activeMin} min · Total ${r.totalMin} min</p>
+    <p>${esc(catOf(r))} · Serves ${srv} · Active ${r.activeMin} min · Total ${r.totalMin} min</p>
     ${found.length ? `<p><b>Contains:</b> ${esc(found.join(", "))}</p>` : ""}
     <h2>Ingredients</h2>
     <ul>${r.ingredients.map(i => `<li>${esc(scaleLine(i, f))}</li>`).join("")}</ul>
@@ -992,7 +1024,7 @@ function cookNowView() {
   return h;
 }
 
-// ---- Top 10 leaderboard (most cooked) ----
+// ---- Top 10 leaderboard (most cooked), on a green background ----
 function topView() {
   let h = `<button class="mini" onclick="go('list')">← Back</button>
     <h2>Top 10 cooked</h2>`;
@@ -1001,6 +1033,7 @@ function topView() {
     .sort((a, b) => (b.cookCount || 0) - (a.cookCount || 0) || a.title.localeCompare(b.title))
     .slice(0, 10);
   if (!list.length) return h + `<p>Nothing cooked yet. Mark a meal as cooked in the Plan tab.</p>`;
+  h += `<div class="top-wrap">`;
   list.forEach((r, i) => {
     h += `<div class="line">
       <span class="ell"><b>${i + 1}.</b> ${esc(r.title)} · Cooked ${r.cookCount}×</span>
@@ -1008,6 +1041,7 @@ function topView() {
       <button class="mini" onclick="openRecipe('${r.id}')">Open</button>
     </div>`;
   });
+  h += `</div>`;
   return h;
 }
 
@@ -1040,6 +1074,12 @@ function setInvTab(s) {
   invTab = s;
   tabName = "inventory";
   view = { name: "invlist" };
+  render();
+}
+function setRecipeCat(c) {
+  recipeCat = c;
+  tabName = "recipes";
+  view = { name: "list", maxMinutes: view.maxMinutes };
   render();
 }
 
@@ -1143,12 +1183,15 @@ function rateRecipe(id, i) {
   render();
 }
 
-// Recipes sorted from 5 stars down to unrated (0 stars at the bottom).
+// Category tabs (Baking / Cooking / Salad / Soup), then recipes sorted from 5 stars down to unrated.
 function listView() {
   const shown = recipes
+    .filter(r => catOf(r) === recipeCat)
     .filter(r => !view.maxMinutes || r.activeMin <= view.maxMinutes)
     .sort((a, b) => (b.rating || 0) - (a.rating || 0) || a.title.localeCompare(b.title));
-  let h = `<div class="row-btns">
+  let h = `<div class="subnav">${CATS.map(c =>
+    `<button class="${c === recipeCat ? "active" : ""}" onclick="setRecipeCat('${c}')">${c}</button>`).join("")}</div>
+  <div class="row-btns">
     <button class="mini" onclick="go('new')">+ Add recipe</button>
     <button class="mini" onclick="document.getElementById('fileInput').click()">Import file</button>
     <button class="mini" onclick="go('paste')">Paste text</button>
@@ -1161,7 +1204,7 @@ function listView() {
     <label>Cooking time: <select onchange="view.maxMinutes=+this.value;render()">
     ${[0, 15, 30, 60].map(v => `<option value="${v}" ${v === view.maxMinutes ? "selected" : ""}>${v ? "up to " + v + " min" : "Any time"}</option>`).join("")}
     </select></label>`;
-  if (!shown.length) h += `<p>No recipes yet.</p>`;
+  if (!shown.length) h += `<p>No ${recipeCat.toLowerCase()} recipes yet.</p>`;
   for (const r of shown) {
     h += `<div class="card">${r.photo ? `<img class="thumb" src="${r.photo}" alt="">` : ""}
       <div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
@@ -1194,6 +1237,7 @@ function formView() {
   const existing = editing ? recipes.find(x => x.id === view.id) : null;
   if (editing && !existing) return listView();
   const d = existing || view.prefill || { title: "", servings: profile.defaultServings, activeMin: "", totalMin: "", ingredients: [], steps: [] };
+  const catNow = existing ? catOf(existing) : recipeCat;
   const banner = !editing && view.source
     ? `<div class="notice">Imported from <b>${esc(view.source)}</b>. ${d.noHeadings ? "No headings were found, so all lines are in Ingredients. Move the steps down by hand. " : ""}Check every field before saving.</div>`
     : "";
@@ -1212,6 +1256,7 @@ function formView() {
     <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none" onchange="pickPhoto(this)">
     <input type="file" id="galInput" accept="image/*" style="display:none" onchange="pickPhoto(this)">
     <input id="t" placeholder="Title" value="${esc(d.title)}">
+    <label>Category <select id="cat">${CATS.map(c => `<option ${c === catNow ? "selected" : ""}>${c}</option>`).join("")}</select></label>
     <label>Serves <input id="s" type="number" value="${d.servings}" min="1"></label>
     <label>Active minutes <input id="a" type="number" min="0" value="${d.activeMin}"></label>
     <label>Total minutes <input id="tot" type="number" min="0" value="${d.totalMin}"></label>
@@ -1229,6 +1274,7 @@ function saveRecipe() {
   const lines = id => document.getElementById(id).value.split("\n").map(x => x.trim()).filter(Boolean);
   const data = {
     title,
+    category: normCat(document.getElementById("cat").value),
     servings: +document.getElementById("s").value || profile.defaultServings,
     activeMin: +document.getElementById("a").value || 0,
     totalMin: +document.getElementById("tot").value || 0,
@@ -1246,6 +1292,7 @@ function saveRecipe() {
   }
   recipes.push({ id: uid(), ...data, cookCount: 0, source: view.source || "Manual entry" });
   save();
+  recipeCat = data.category;
   go("list");
 }
 
@@ -1260,7 +1307,7 @@ function showView(id) {
     ${r.photo ? `<img class="photo" src="${r.photo}" alt="">` : ""}
     ${allergenBadge(r)}
     ${hasAllergens ? `<div class="small">Based on ingredient names. Always read labels.</div>` : ""}
-    <div class="small">Active ${r.activeMin} min · Total ${r.totalMin} min</div>
+    <div class="small">${esc(catOf(r))} · Active ${r.activeMin} min · Total ${r.totalMin} min</div>
     <div class="small">Cooked ${r.cookCount || 0}×</div>
     ${calorieLine(r)}
     ${ratingBar(r)}
@@ -1347,17 +1394,18 @@ function swipeView() {
     return h + savedList() + passedList();
   }
   const r = deck[0];
+  // The hint sits outside the moving card, so PASS / SAVE stays visible while you swipe.
   h += `<p class="small">Swipe right to save, left to pass. You can also use the buttons.</p>
   <div class="row-btns swipe-btns">
     <button class="btn-pass" onclick="swipeAction('pass')">✕ Pass</button>
     <button class="btn-save" onclick="swipeAction('like')">♥ Save</button>
   </div>
   <div class="swipe-wrap">
+    <div id="hint" class="hint"></div>
     <div id="card" class="swipe-card">
-      <div id="hint" class="hint"></div>
       ${r.photo ? `<img class="photo" src="${r.photo}" alt="">` : ""}
       <div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
-      <div class="small">Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
+      <div class="small">${esc(catOf(r))} · Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
       <div class="small">Cooked ${r.cookCount || 0}×</div>
       ${calorieLine(r)}
       ${allergenBadge(r)}
@@ -1408,10 +1456,18 @@ function resetSwipe() {
   render();
 }
 
+// Shows a large SAVE or PASS label in the middle of the swipe area, depending on drag direction.
+function setHint(dx) {
+  const hint = document.getElementById("hint");
+  if (!hint) return;
+  if (dx > 60) { hint.textContent = "♥ SAVE"; hint.className = "hint save"; }
+  else if (dx < -60) { hint.textContent = "✕ PASS"; hint.className = "hint pass"; }
+  else { hint.textContent = ""; hint.className = "hint"; }
+}
+
 function attachSwipe() {
   const el = document.getElementById("card");
   if (!el) return;
-  const hint = document.getElementById("hint");
   let startX = null, dx = 0;
 
   el.addEventListener("pointerdown", e => {
@@ -1422,8 +1478,7 @@ function attachSwipe() {
     if (startX === null) return;
     dx = e.clientX - startX;
     el.style.transform = `translateX(${dx}px) rotate(${dx / 25}deg)`;
-    hint.textContent = dx > 60 ? "SAVE ♥" : dx < -60 ? "PASS ✕" : "";
-    hint.style.color = dx > 0 ? "#2e7d32" : "#c62828";
+    setHint(dx);
   });
   const release = () => {
     if (startX === null) return;
@@ -1434,7 +1489,7 @@ function attachSwipe() {
     else {
       el.style.transition = "transform .2s";
       el.style.transform = "";
-      hint.textContent = "";
+      setHint(0);
     }
   };
   el.addEventListener("pointerup", release);
@@ -1475,7 +1530,7 @@ function inventoryView() {
       left = `<span>${txt}</span>`;
     }
     h += `<div class="line ${urgent ? "warn" : ""}">
-      <span class="ell"><b>${esc(i.name)}</b> · ${esc(i.qty)} ${esc(unitLabel(i.unit))} · ${esc(exp)} · ${left}</span>
+      <span class="ell"><b>${esc(i.name)}</b> · ${esc(i.qty)} ${esc(unitLabel(i.unit))} · ${left}${exp ? " · " + esc(exp) : ""}</span>
       <button class="mini" onclick="go('editItem','${i.id}')">Edit</button>
       <button class="mini" onclick="useUp('${i.id}')">Used</button>
     </div>`;
@@ -1625,6 +1680,7 @@ function bulkRecipeRows(rows) {
       err,
       data: {
         title,
+        category: normCat(r.category),
         servings: +r.servings || profile.defaultServings,
         activeMin: +r.active_min || 0,
         totalMin: +r.total_min || 0,
@@ -1656,6 +1712,7 @@ async function readBulk(input) {
       if (!Array.isArray(data)) throw new Error("the JSON file must contain a list");
       rows = data.map(x => kind === "recipes" ? {
         title: x.title,
+        category: x.category,
         servings: x.servings,
         active_min: x.activeMin ?? x.active_min,
         total_min: x.totalMin ?? x.total_min,
@@ -1690,7 +1747,7 @@ function bulkView() {
     h += `<div class="card ${it.err.length ? "warn" : ""}">
       <b>${esc(title || "(no title)")}</b>
       ${kind === "recipes"
-        ? `<div class="small">Serves ${d.servings} · ${d.ingredients.length} ingredients · ${d.steps.length} steps</div>`
+        ? `<div class="small">${esc(d.category)} · Serves ${d.servings} · ${d.ingredients.length} ingredients · ${d.steps.length} steps</div>`
         : `<div class="small">${d.expiry ? "Exp. " + esc(fmtDate(d.expiry)) : ""}${d.expirySource === "rule" ? " (estimate)" : ""}</div>`}
       ${it.err.length ? `<div class="alert">Row ${it.row}: ${esc(it.err.join("; "))}</div>` : ""}
     </div>`;
@@ -1722,7 +1779,7 @@ function cancelBulk() {
 // Downloads a CSV with the right column names and one example row.
 function downloadTemplate(kind) {
   const csv = kind === "recipes"
-    ? 'title,servings,active_min,total_min,ingredients,steps\n"Pancakes",4,10,25,"1 cup flour|1 egg|1 cup milk","Mix everything|Cook 2 min per side"'
+    ? 'title,category,servings,active_min,total_min,ingredients,steps\n"Pancakes",Baking,4,10,25,"1 cup flour|1 egg|1 cup milk","Mix everything|Cook 2 min per side"'
     : "name,qty,unit,storage,expiry,quality\nMilk,1,gallon,fridge,,best by\nRice,500,g,pantry,2027-06-01,best by";
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
@@ -1730,7 +1787,7 @@ function downloadTemplate(kind) {
   a.click();
 }
 
-// ---- Meal plan (compact, one line per entry) ----
+// ---- Meal plan (compact: one row to add, one line per entry) ----
 function planView() {
   let h = `<h2>Meal plan</h2>`;
   if (!recipes.length) {
@@ -1739,16 +1796,18 @@ function planView() {
   const recipeOptions = recipes.map(r =>
     `<option value="${r.id}" ${r.id === planDraft.recipeId ? "selected" : ""}>${esc(r.title)}</option>`).join("");
   h += `<div class="card">
-    <label>Date <input type="date" value="${planDraft.date}" onchange="planDraft.date=this.value"></label>
-    <label>Meal <select onchange="planDraft.meal=this.value">
-      ${MEALS.map(m => `<option ${m === planDraft.meal ? "selected" : ""}>${m}</option>`).join("")}
-    </select></label>
-    <label>Recipe <select onchange="planDraft.recipeId=this.value;planDraft.servings='';render()">
-      <option value="">Choose a recipe…</option>${recipeOptions}
-    </select></label>
-    <label>Servings <input type="number" min="1" value="${planDraft.servings}" placeholder="recipe default"
-      onchange="planDraft.servings=this.value"></label>
-    <button onclick="addPlanEntry()">Add to plan</button>
+    <div class="plan-add">
+      <input type="date" class="pa-date" title="Date" value="${planDraft.date}" onchange="planDraft.date=this.value">
+      <select class="pa-meal" title="Meal" onchange="planDraft.meal=this.value">
+        ${MEALS.map(m => `<option value="${m}" ${m === planDraft.meal ? "selected" : ""}>${m}</option>`).join("")}
+      </select>
+      <select class="pa-recipe" title="Recipe" onchange="planDraft.recipeId=this.value;planDraft.servings='';render()">
+        <option value="">Choose a recipe…</option>${recipeOptions}
+      </select>
+      <input type="number" class="pa-serv" min="1" title="Servings" value="${planDraft.servings}" placeholder="serv."
+        onchange="planDraft.servings=this.value">
+      <button class="mini" onclick="addPlanEntry()">Add</button>
+    </div>
   </div>`;
 
   const sorted = [...plan].sort((a, b) =>
@@ -2034,6 +2093,7 @@ let lang = localStorage.getItem("lang_v1") || "en";
 const DE = {
   "Recipes": "Rezepte", "Inventory": "Vorrat", "Plan": "Plan", "Swipe": "Entdecken", "Profile": "Profil",
   "Fridge": "Kühlschrank", "Freezer": "Gefrierfach", "Pantry": "Vorratsschrank",
+  "Baking": "Backen", "Cooking": "Kochen", "Salad": "Salat", "Soup": "Suppe", "Category": "Kategorie",
   "+ Add recipe": "+ Rezept", "Import file": "Datei importieren", "Paste text": "Text einfügen",
   "What can I cook?": "Was kann ich kochen?", "Bulk upload": "Massen-Upload", "CSV template": "CSV-Vorlage",
   "🏆 Top 10": "🏆 Top 10", "Top 10 cooked": "Top 10 gekocht",
