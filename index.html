@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="manifest" href="manifest.json">
-<link rel="icon" href="icon.svg">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#2f6f4e">
 <title>My Kitchen</title>
 <style>
@@ -13,6 +13,7 @@
     --bg: #f6f5f2; --card: #ffffff; --ink: #1d1d1f; --muted: #6b6b70;
     --line: #e4e2dc; --accent: #2f6f4e; --accent-soft: #e8f3ed;
     --danger: #b42318; --danger-soft: #fdf0ee; --radius: 14px;
+    --orange: #e07a1f;
   }
   * { box-sizing: border-box; }
   body {
@@ -40,6 +41,9 @@
   button[onclick^="publishFamilyView"], button[onclick^="openSharedPicker"] {
     background: var(--accent); border-color: var(--accent); color: #fff;
   }
+  .mini { font-size: 13px; padding: 4px 10px; margin: 2px 4px 2px 0; }
+  .mini.accent { background: var(--orange); border-color: var(--orange); color: #fff; }
+  .row-btns { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
 
   input, textarea, select {
     width: 100%; font: inherit; font-size: 16px; padding: 10px 12px;
@@ -62,6 +66,19 @@
   }
   nav button.active { background: var(--ink); color: #fff; }
 
+  .subnav { display: flex; gap: 6px; margin: 6px 0 10px; }
+  .subnav button { flex: 1; margin: 0; padding: 6px 8px; font-size: 15px; }
+  .subnav button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .line {
+    display: flex; align-items: center; gap: 6px; min-height: 40px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 6px 10px; margin: 4px 0; font-size: 15px;
+  }
+  .line .mini { flex: none; }
+  .ell { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .line input[type=checkbox] { margin: 0; flex: none; }
+
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 14px 16px; margin: 10px 0; box-shadow: 0 1px 2px rgba(0,0,0,.04);
@@ -80,7 +97,7 @@
   .sync {
     display: flex; flex-direction: column; gap: 6px; font-size: 14px;
     background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    padding: 10px 12px; margin-bottom: 8px;
+    padding: 10px 12px; margin-top: 18px;
   }
   .sync.err { background: var(--danger-soft); color: var(--danger); border-color: #f3c4bf; }
   .sync button { font-size: 14px; padding: 6px 12px; margin: 0 4px 0 0; }
@@ -124,15 +141,15 @@
 </head>
 <body>
 <h1>My Kitchen</h1>
-<div id="sync" class="sync">Starting…</div>
 <nav>
   <button id="tabR" onclick="tab('recipes')">Recipes</button>
   <button id="tabI" onclick="tab('inventory')">Inventory</button>
-  <button id="tabP" onclick="tab('plan')">Plan</button>
   <button id="tabS" onclick="tab('swipe')">Swipe</button>
+  <button id="tabP" onclick="tab('plan')">Plan</button>
   <button id="tabF" onclick="tab('profile')">Profile</button>
 </nav>
 <div id="app"></div>
+<div id="sync" class="sync">Starting…</div>
 <div id="print"></div>
 <input type="file" id="fileInput" accept=".pdf,.docx,.txt" style="display:none" onchange="importFile(this)">
 <input type="file" id="bulkFile" accept=".csv,.json,text/csv,application/json" style="display:none" onchange="readBulk(this)">
@@ -276,6 +293,7 @@ let lastCook = JSON.parse(localStorage.getItem(LKEY) || "null");
 let swipe = JSON.parse(localStorage.getItem(SWKEY) || '{"liked":[],"passed":[]}');
 let profile = { defaultServings: 4, allergens: [], showCalories: true, ...JSON.parse(localStorage.getItem(PRKEY) || "{}") };
 let tabName = "recipes";
+let invTab = "fridge";
 let view = { name: "list", maxMinutes: 0 };
 let planDraft = { date: isoDate(new Date()), meal: "dinner", recipeId: "", servings: "", from: isoDate(new Date()), to: addDays(6), manual: "" };
 let shopResult = null;
@@ -723,7 +741,7 @@ async function createFamilyDoc(html) {
 
 // Refreshes the existing Doc. If Google refuses the update, a new Doc is created.
 async function publishFamilyView() {
-  if (!isConnected()) return alert("Connect Google Drive first (see the status bar at the top).");
+  if (!isConnected()) return alert("Connect Google Drive first (see the status bar at the bottom).");
   const html = familyHtml();
   const id = localStorage.getItem(FAMILY_KEY);
   try {
@@ -920,7 +938,7 @@ async function shareRecipe(id) {
 
 // ---- What can I cook? ----
 function cookNowView() {
-  let h = `<button onclick="go('list')">← Back</button>
+  let h = `<button class="mini" onclick="go('list')">← Back</button>
     <h2>What can I cook?</h2>
     <p class="small">Matches ingredient names in your inventory. Quantities are not checked here. Salt, pepper, water and oil are ignored.</p>`;
   if (!recipes.length) return h + `<p>Add some recipes first.</p>`;
@@ -948,7 +966,7 @@ function cookNowView() {
         ? `<div class="small">Missing: ${esc(x.missing.map(cap).join(", "))}</div>`
         : `<div class="small">You have everything for this recipe.</div>`}
       ${allergenBadge(x.r)}
-      <button onclick="openRecipe('${x.r.id}')">Open</button>
+      <button class="mini" onclick="openRecipe('${x.r.id}')">Open</button>
     </div>`;
   }
   return h;
@@ -979,12 +997,18 @@ function openReview(draft, source) {
   view = { name: "new", maxMinutes: view.maxMinutes, prefill: draft, source };
   render();
 }
+function setInvTab(s) {
+  invTab = s;
+  tabName = "inventory";
+  view = { name: "invlist" };
+  render();
+}
 
 function render() {
   document.getElementById("tabR").classList.toggle("active", tabName === "recipes");
   document.getElementById("tabI").classList.toggle("active", tabName === "inventory");
-  document.getElementById("tabP").classList.toggle("active", tabName === "plan");
   document.getElementById("tabS").classList.toggle("active", tabName === "swipe");
+  document.getElementById("tabP").classList.toggle("active", tabName === "plan");
   document.getElementById("tabF").classList.toggle("active", tabName === "profile");
   const app = document.getElementById("app");
   if (view.name === "bulk") {
@@ -1081,12 +1105,14 @@ function rateRecipe(id, i) {
 
 function listView() {
   const shown = recipes.filter(r => !view.maxMinutes || r.activeMin <= view.maxMinutes);
-  let h = `<button onclick="go('new')">+ Add recipe</button>
-    <button onclick="document.getElementById('fileInput').click()">Import file</button>
-    <button onclick="go('paste')">Paste text</button>
-    <button onclick="go('cooknow')">What can I cook?</button>
-    <button onclick="bulkPick('recipes')">Bulk upload</button>
-    <button onclick="downloadTemplate('recipes')">CSV template</button>
+  let h = `<div class="row-btns">
+    <button class="mini" onclick="go('new')">+ Add recipe</button>
+    <button class="mini" onclick="document.getElementById('fileInput').click()">Import file</button>
+    <button class="mini" onclick="go('paste')">Paste text</button>
+    <button class="mini" onclick="bulkPick('recipes')">Bulk upload</button>
+    <button class="mini" onclick="downloadTemplate('recipes')">CSV template</button>
+    <button class="mini accent" onclick="go('cooknow')">What can I cook?</button>
+  </div>
     <p class="small">Import accepts PDF, DOCX or TXT. You review everything before it's saved.</p>
     <label>Active time: <select onchange="view.maxMinutes=+this.value;render()">
     ${[0, 15, 30, 60].map(v => `<option value="${v}" ${v === view.maxMinutes ? "selected" : ""}>${v ? "up to " + v + " min" : "Any time"}</option>`).join("")}
@@ -1098,8 +1124,8 @@ function listView() {
       ${starsHtml(r.rating)}
       ${calorieLine(r)}
       ${allergenBadge(r)}
-      <button onclick="go('show','${r.id}')">Open</button>
-      <button onclick="editRecipe('${r.id}')">Edit</button></div>`;
+      <button class="mini" onclick="go('show','${r.id}')">Open</button>
+      <button class="mini" onclick="editRecipe('${r.id}')">Edit</button></div>`;
   }
   return h;
 }
@@ -1305,7 +1331,7 @@ function savedList() {
     h += `<div class="card"><b>${esc(r.title)}</b>
       <div class="small">Active ${r.activeMin} min · Serves ${r.servings}</div>
       ${starsHtml(r.rating)}
-      <button onclick="openRecipe('${r.id}')">Open</button></div>`;
+      <button class="mini" onclick="openRecipe('${r.id}')">Open</button></div>`;
   }
   return h;
 }
@@ -1364,29 +1390,31 @@ function flyOut(el, dir, done) {
   setTimeout(done, 250);
 }
 
-// ---- Inventory ----
+// ---- Inventory (Fridge / Freezer / Pantry tabs, one line per item) ----
 function inventoryView() {
+  const tabsHtml = `<div class="subnav">${STORAGE_OK.map(s =>
+    `<button class="${s === invTab ? "active" : ""}" onclick="setInvTab('${s}')">${cap(s)}</button>`).join("")}</div>`;
   const active = inventory
-    .filter(i => !i.used)
+    .filter(i => !i.used && i.storage === invTab)
     .sort((a, b) => (a.expiry || "9999-12-31").localeCompare(b.expiry || "9999-12-31"));
-  let h = `<button onclick="go('newItem')">+ Add item</button>
-    <button onclick="bulkPick('inventory')">Bulk upload</button>
-    <button onclick="downloadTemplate('inventory')">CSV template</button>`;
-  if (!active.length) h += `<p>Nothing in inventory yet.</p>`;
+  let h = tabsHtml + `<div class="row-btns">
+    <button class="mini" onclick="go('newItem')">+ Add item</button>
+    <button class="mini" onclick="bulkPick('inventory')">Bulk upload</button>
+    <button class="mini" onclick="downloadTemplate('inventory')">CSV template</button>
+  </div>`;
+  if (!active.length) h += `<p class="small">Nothing in ${invTab} yet.</p>`;
   for (const i of active) {
-    let status = "No date set";
-    let urgent = false;
+    let when = "no date", urgent = false;
     if (i.expiry) {
       const d = daysUntil(i.expiry);
       urgent = d <= 3;
-      const when = d < 0 ? `EXPIRED ${-d} day(s) ago` : d === 0 ? "expires today" : `${d} day(s) left`;
-      status = `${i.quality} ${i.expiry}${i.expirySource === "rule" ? " (estimate)" : ""} · ${when}`;
+      when = d < 0 ? `expired ${-d}d ago` : d === 0 ? "expires today" : `${d}d left`;
     }
-    h += `<div class="card ${urgent ? "warn" : ""}">
-      <b>${esc(i.name)}</b> · ${esc(i.qty)} ${esc(unitLabel(i.unit))} · ${esc(i.storage)}
-      <div class="small">${esc(status)}</div>
-      <button onclick="go('editItem','${i.id}')">Edit</button>
-      <button onclick="useUp('${i.id}')">Used up</button>
+    const date = i.expiry ? `${i.quality} ${i.expiry}${i.expirySource === "rule" ? " (est.)" : ""}` : "no date";
+    h += `<div class="line ${urgent ? "warn" : ""}">
+      <span class="ell"><b>${esc(i.name)}</b> · ${esc(i.qty)} ${esc(unitLabel(i.unit))} · ${esc(date)} · ${when}</span>
+      <button class="mini" onclick="go('editItem','${i.id}')">Edit</button>
+      <button class="mini" onclick="useUp('${i.id}')">Used</button>
     </div>`;
   }
   return h;
@@ -1400,7 +1428,7 @@ function unitSelect(current) {
 }
 
 function itemForm(item) {
-  const i = item || { name: "", qty: "1", unit: "count", storage: "fridge", expiry: "", quality: "best by" };
+  const i = item || { name: "", qty: "1", unit: "count", storage: invTab, expiry: "", quality: "best by" };
   return `<h2>${item ? "Edit item" : "New item"}</h2>
     <input id="n" placeholder="Name (e.g. Milk)" value="${esc(i.name)}">
     <label>Quantity <input id="q" value="${esc(i.qty)}"></label>
@@ -1434,6 +1462,7 @@ function saveItem(id) {
   } else {
     inventory.push({ id: uid(), used: false, ...data });
   }
+  invTab = storage;
   saveInventory();
   tab("inventory");
 }
@@ -1588,7 +1617,7 @@ function bulkView() {
   const { kind, items } = view;
   const ok = items.filter(i => !i.err.length);
   const label = kind === "recipes" ? "recipes" : "inventory items";
-  let h = `<button onclick="cancelBulk()">← Back</button>
+  let h = `<button class="mini" onclick="cancelBulk()">← Back</button>
     <h2>Review ${label} upload</h2>
     <p class="small">${ok.length} ready to import, ${items.length - ok.length} skipped. Nothing is saved until you confirm.</p>`;
   for (const it of items.slice(0, 50)) {
@@ -1639,7 +1668,7 @@ function downloadTemplate(kind) {
   a.click();
 }
 
-// ---- Meal plan ----
+// ---- Meal plan (compact, one line per entry) ----
 function planView() {
   let h = `<h2>Meal plan</h2>`;
   if (!recipes.length) {
@@ -1666,16 +1695,12 @@ function planView() {
   for (const e of sorted) {
     const r = recipes.find(x => x.id === e.recipeId);
     const canUndo = e.cooked && lastCook && lastCook.planId === e.id;
-    h += `<div class="card ${e.cooked ? "cooked" : ""}">
-      <b>${esc(niceDate(e.date))} · ${esc(e.meal)}</b><br>
-      ${r ? esc(r.title) : "(recipe deleted)"} · serves ${e.servings}
-      ${r ? allergenBadge(r) : ""}
-      ${e.cooked ? `<div class="small">✓ Cooked. Ingredients were taken from inventory.</div>` : ""}
-      <div>
-        ${r && !e.cooked ? `<button onclick="markCooked('${e.id}')">Mark cooked</button>` : ""}
-        ${canUndo ? `<button onclick="undoCook()">Undo cook</button>` : ""}
-        <button onclick="removePlan('${e.id}')">Remove</button>
-      </div>
+    const allergyFlag = r && recipeAllergens(r).some(a => profile.allergens.includes(a.key)) ? " ⚠" : "";
+    h += `<div class="line ${e.cooked ? "cooked" : ""}">
+      <span class="ell"><b>${esc(niceDate(e.date))}</b> · ${esc(e.meal)} · ${r ? esc(r.title) : "(recipe deleted)"} · ${e.servings}${allergyFlag}${e.cooked ? " · ✓" : ""}</span>
+      ${r && !e.cooked ? `<button class="mini" onclick="markCooked('${e.id}')">Cooked</button>` : ""}
+      ${canUndo ? `<button class="mini" onclick="undoCook()">Undo</button>` : ""}
+      <button class="mini" onclick="removePlan('${e.id}')">✕</button>
     </div>`;
   }
 
@@ -1684,40 +1709,45 @@ function planView() {
       <label>From <input type="date" value="${planDraft.from}" onchange="planDraft.from=this.value"></label>
       <label>To <input type="date" value="${planDraft.to}" onchange="planDraft.to=this.value"></label>
     </div>
-    <button onclick="buildShop()">Build shopping list</button>
-    <button onclick="uncheckAll()">Uncheck all</button>`;
+    <div class="row-btns">
+      <button class="mini" onclick="buildShop()">Build shopping list</button>
+      <button class="mini" onclick="uncheckAll()">Uncheck all</button>
+      <button class="mini" onclick="copyShopping()">Copy list</button>
+    </div>`;
 
   if (shopResult) h += shopView(shopResult);
 
   h += `<h3>Extra items</h3>
     <div class="row">
       <input placeholder="e.g. paper towels" value="${esc(planDraft.manual)}" onchange="planDraft.manual=this.value">
-      <button onclick="addManual()">Add</button>
+      <button class="mini" onclick="addManual()">Add</button>
     </div>`;
   if (!shop.manual.length) h += `<p class="small">No extra items.</p>`;
   for (const m of shop.manual) {
-    h += `<label class="${m.checked ? "done" : ""}">
-      <input type="checkbox" ${m.checked ? "checked" : ""} onchange="toggleManual('${m.id}')">${esc(m.name)}</label>
-      <button onclick="removeManual('${m.id}')">Remove</button><br>`;
+    h += `<div class="line ${m.checked ? "done" : ""}">
+      <input type="checkbox" ${m.checked ? "checked" : ""} onchange="toggleManual('${m.id}')">
+      <span class="ell">${esc(m.name)}</span>
+      <button class="mini" onclick="removeManual('${m.id}')">✕</button>
+    </div>`;
   }
   return h;
 }
 
+// Compact "to buy" list: one line per item.
 function shopView(res) {
   const toBuy = res.rows.filter(r => r.buy > 0.001);
   const enough = res.rows.filter(r => r.buy <= 0.001);
   let h = `<h3>To buy</h3>`;
   if (!toBuy.length) h += `<p>Nothing to buy for this range.</p>`;
-  toBuy.forEach((r) => {
+  for (const r of toBuy) {
     const idx = res.rows.indexOf(r);
     const checked = !!shop.checked[r.key];
-    h += `<div class="card ${checked ? "done" : ""}">
-      <label><input type="checkbox" ${checked ? "checked" : ""} onchange="toggleCheck(${idx})">
-      <b>${esc(cap(r.name))}</b> · buy ${esc(fmtAmount(r.kind, r.buy))}</label>
-      <div class="small">Need ${esc(fmtAmount(r.kind, r.need))} · Have ${esc(fmtAmount(r.kind, r.have))}</div>
-      ${r.notCompared.length ? `<div class="small">In inventory but can't be converted: ${esc(r.notCompared.join(", "))}</div>` : ""}
+    const warn = r.notCompared.length ? ` <span title="In inventory but can't be converted: ${esc(r.notCompared.join(", "))}">⚠</span>` : "";
+    h += `<div class="line ${checked ? "done" : ""}">
+      <input type="checkbox" ${checked ? "checked" : ""} onchange="toggleCheck(${idx})">
+      <span class="ell"><b>${esc(cap(r.name))}</b> · buy ${esc(fmtAmount(r.kind, r.buy))} <span class="small">(need ${esc(fmtAmount(r.kind, r.need))}, have ${esc(fmtAmount(r.kind, r.have))})</span>${warn}</span>
     </div>`;
-  });
+  }
   if (enough.length) {
     h += `<h3>Already have enough</h3>`;
     h += enough.map(r => `<div class="small">${esc(cap(r.name))} (need ${esc(fmtAmount(r.kind, r.need))}, have ${esc(fmtAmount(r.kind, r.have))})</div>`).join("");
@@ -1727,6 +1757,35 @@ function shopView(res) {
     h += res.unparsed.map(l => `<div class="small">${esc(l)}</div>`).join("");
   }
   return h;
+}
+
+// Copies the items still to buy (not ticked) as plain text, for WhatsApp, Notes or email.
+function copyShopping() {
+  if (!shopResult) return alert("Build the shopping list first.");
+  const lines = shopResult.rows
+    .filter(r => r.buy > 0.001 && !shop.checked[r.key])
+    .map(r => `- ${cap(r.name)}: ${fmtAmount(r.kind, r.buy)}`);
+  shop.manual.filter(m => !m.checked).forEach(m => lines.push(`- ${m.name}`));
+  if (!lines.length) return alert("Nothing to copy. Everything is ticked or nothing is needed.");
+  const text = "Shopping list\n" + lines.join("\n");
+  const done = () => alert("Shopping list copied. You can paste it into WhatsApp, Notes or email.");
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(done, () => fallbackCopy(text, done));
+  } else {
+    fallbackCopy(text, done);
+  }
+}
+
+function fallbackCopy(text, done) {
+  const t = document.createElement("textarea");
+  t.value = text;
+  t.style.position = "fixed";
+  t.style.opacity = "0";
+  document.body.appendChild(t);
+  t.select();
+  try { document.execCommand("copy"); } catch (e) {}
+  t.remove();
+  done();
 }
 
 function addPlanEntry() {
@@ -1905,7 +1964,8 @@ let lang = localStorage.getItem("lang_v1") || "en";
 
 const DE = {
   "Recipes": "Rezepte", "Inventory": "Vorrat", "Plan": "Plan", "Swipe": "Entdecken", "Profile": "Profil",
-  "+ Add recipe": "+ Rezept hinzufügen", "Import file": "Datei importieren", "Paste text": "Text einfügen",
+  "Fridge": "Kühlschrank", "Freezer": "Gefrierfach", "Pantry": "Vorratsschrank",
+  "+ Add recipe": "+ Rezept", "Import file": "Datei importieren", "Paste text": "Text einfügen",
   "What can I cook?": "Was kann ich kochen?", "Bulk upload": "Massen-Upload", "CSV template": "CSV-Vorlage",
   "Any time": "Beliebig", "Active time:": "Aktive Zeit:", "No recipes yet.": "Noch keine Rezepte.",
   "Open": "Öffnen", "Edit": "Bearbeiten", "Print": "Drucken", "Share file": "Datei teilen",
@@ -1913,12 +1973,12 @@ const DE = {
   "Save": "Speichern", "Cancel": "Abbrechen", "Rating": "Bewertung", "Ingredients": "Zutaten",
   "Steps": "Zubereitung", "Servings": "Portionen", "Active minutes": "Aktive Minuten",
   "Total minutes": "Gesamtzeit (Min.)", "Title": "Titel", "Not rated yet": "Noch nicht bewertet",
-  "+ Add item": "+ Artikel hinzufügen", "Used up": "Verbraucht", "Edit item": "Artikel bearbeiten",
+  "+ Add item": "+ Artikel", "Used": "Verbraucht", "Used up": "Verbraucht", "Edit item": "Artikel bearbeiten",
   "New item": "Neuer Artikel", "Quantity": "Menge", "Unit": "Einheit", "Storage": "Lagerort",
   "Expiry date (optional)": "Haltbar bis (optional)", "Date type": "Datumstyp",
   "Nothing in inventory yet.": "Noch kein Vorrat.", "Add to plan": "Zum Plan hinzufügen",
-  "Mark cooked": "Als gekocht markieren", "Undo cook": "Kochen rückgängig", "Remove": "Entfernen",
-  "Build shopping list": "Einkaufsliste erstellen", "Uncheck all": "Alle abhaken",
+  "Mark cooked": "Als gekocht markieren", "Cooked": "Gekocht", "Undo": "Rückgängig", "Remove": "Entfernen",
+  "Build shopping list": "Einkaufsliste erstellen", "Uncheck all": "Alle abhaken", "Copy list": "Liste kopieren",
   "Extra items": "Extra-Artikel", "Add": "Hinzufügen", "Shopping list": "Einkaufsliste",
   "Household profile": "Haushaltsprofil", "Default servings for new recipes": "Standard-Portionen für neue Rezepte",
   "Allergies": "Allergien", "Calories": "Kalorien", "Show calorie estimates": "Kalorienschätzung anzeigen",
@@ -1937,12 +1997,11 @@ const DE = {
   "Nothing saved yet.": "Noch nichts gemerkt.", "Nothing to buy for this range.": "Nichts zu kaufen in diesem Zeitraum.",
   "breakfast": "Frühstück", "lunch": "Mittagessen", "dinner": "Abendessen", "snack": "Snack",
   "pcs (count)": "Stück", "Name (e.g. Milk)": "Name (z. B. Milch)",
-  "fridge": "Kühlschrank", "freezer": "Gefrierfach", "pantry": "Vorratsschrank",
   "best by": "mindestens haltbar bis", "use by": "verbrauchen bis",
   "Import accepts PDF, DOCX or TXT. You review everything before it's saved.": "Import: PDF, DOCX oder TXT. Du prüfst alles, bevor es gespeichert wird.",
   "Recipes that contain these show a red warning. Warnings are based on ingredient names, so always read labels.":
     "Rezepte mit diesen Zutaten zeigen eine rote Warnung. Die Prüfung basiert auf Zutatennamen, bitte immer Etiketten lesen.",
-  "Manual entry": "Manuelle Eingabe", "Bulk upload ": "Massen-Upload"
+  "Manual entry": "Manuelle Eingabe"
 };
 
 const DE_PATTERNS = [
@@ -1996,6 +2055,7 @@ render = function () { renderBase(); applyLang(); };
 
 // ---- Start ----
 window.addEventListener("load", () => {
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
   const ready = initAuth();
   driveFileId = localStorage.getItem(SHARED_KEY) || driveFileId;
   if (isConnected() && ready) syncNow();
