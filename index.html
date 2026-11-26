@@ -6,32 +6,33 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<meta name="theme-color" content="#2f6f4e">
-<title>My Kitchen</title>
+<meta name="theme-color" content="#0F766E">
+<title>My Kitchen App</title>
 <style>
   :root {
-    --bg: #f6f5f2; --card: #ffffff; --ink: #1d1d1f; --muted: #6b6b70;
-    --line: #e4e2dc; --accent: #2f6f4e; --accent-soft: #e8f3ed;
-    --danger: #b42318; --danger-soft: #fdf0ee; --radius: 14px;
-    --orange: #e07a1f;
+    --bg: #F4F8F7; --card: #FFFFFF; --ink: #14212B; --muted: #5E6F78;
+    --line: #D9E7E4; --primary: #0F766E; --primary-soft: #E0F2EF;
+    --accent: #F97360; --ok: #16A34A; --danger: #DC2626; --danger-soft: #FDECEC;
+    --radius: 14px;
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0 auto; padding: 16px; max-width: 640px;
+    margin: 0 auto; padding: 14px; max-width: 640px;
     background: var(--bg); color: var(--ink);
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    font-size: 17px; line-height: 1.45;
+    font-size: 16px; line-height: 1.45;
   }
-  h1 { font-size: 28px; margin: 4px 0 12px; letter-spacing: -0.02em; }
-  h2 { font-size: 22px; margin: 18px 0 8px; }
-  h3 { font-size: 17px; margin: 16px 0 6px; }
+  .app-title { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin: 2px 0 8px; color: var(--ink); }
+  h2 { font-size: 20px; margin: 16px 0 8px; }
+  h3 { font-size: 16px; margin: 14px 0 6px; }
   ul, ol { padding-left: 22px; }
   li { margin: 4px 0; }
 
+  /* Outlined pill buttons, like the chips in the reference screenshot */
   button {
-    font: inherit; font-size: 16px; padding: 10px 16px; margin: 4px 6px 4px 0;
-    border-radius: 999px; border: 1px solid var(--line);
-    background: var(--card); color: var(--ink); cursor: pointer;
+    font: inherit; font-size: 15px; font-weight: 500; padding: 9px 16px; margin: 4px 6px 4px 0;
+    border-radius: 999px; border: 1px solid #9CCFC7;
+    background: var(--card); color: var(--primary); cursor: pointer;
     transition: transform .08s ease, background .15s ease;
   }
   button:active { transform: scale(0.97); }
@@ -39,18 +40,23 @@
   button[onclick^="buildShop"], button[onclick^="markCooked"],
   button[onclick^="connect"], button[onclick^="confirmBulk"],
   button[onclick^="publishFamilyView"], button[onclick^="openSharedPicker"] {
-    background: var(--accent); border-color: var(--accent); color: #fff;
+    background: var(--primary); border-color: var(--primary); color: #fff;
   }
-  .mini { font-size: 13px; padding: 4px 10px; margin: 2px 4px 2px 0; }
+  .mini { font-size: 13px; padding: 5px 11px; margin: 2px 4px 2px 0; }
   a.mini {
-    display: inline-block; text-decoration: none; color: var(--ink);
-    border: 1px solid var(--line); border-radius: 999px; background: var(--card);
-    padding: 4px 10px; font-size: 13px; margin: 2px 4px 2px 0;
+    display: inline-block; text-decoration: none; color: var(--primary);
+    border: 1px solid #9CCFC7; border-radius: 999px; background: var(--card);
+    padding: 5px 11px; font-size: 13px; margin: 2px 4px 2px 0;
   }
-  .mini.accent { background: var(--orange); border-color: var(--orange); color: #fff; }
-  .top-btn { background: #2e7d32; border-color: #2e7d32; color: #fff; }
-  .btn-pass { background: #c62828; border-color: #c62828; color: #fff; font-size: 18px; padding: 12px 22px; }
-  .btn-save { background: #2e7d32; border-color: #2e7d32; color: #fff; font-size: 18px; padding: 12px 22px; }
+  .mini.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .top-btn { border-color: var(--ok); color: var(--ok); }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; font-size: 14px; margin: 4px 6px 4px 0;
+    background: var(--card); border: 1px solid #9CCFC7; border-radius: 999px; color: var(--primary);
+  }
+  .btn-pass { background: var(--danger); border-color: var(--danger); color: #fff; font-size: 17px; padding: 11px 22px; }
+  .btn-save { background: var(--ok); border-color: var(--ok); color: #fff; font-size: 17px; padding: 11px 22px; }
   .row-btns { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
 
   input, textarea, select {
@@ -58,35 +64,33 @@
     margin: 4px 0 10px; border: 1px solid var(--line); border-radius: 10px;
     background: #fff; color: var(--ink);
   }
-  input:focus, textarea:focus, select:focus {
-    outline: 2px solid var(--accent-soft); border-color: var(--accent);
-  }
-  input[type=checkbox] { width: auto; margin: 0 8px 0 0; accent-color: var(--accent); }
-  label { display: block; font-size: 15px; color: var(--muted); margin-bottom: 6px; }
-  label.check { color: var(--ink); font-size: 16px; }
+  input:focus, textarea:focus, select:focus { outline: 2px solid var(--primary-soft); border-color: var(--primary); }
+  input[type=checkbox] { width: auto; margin: 0 8px 0 0; accent-color: var(--primary); }
+  label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  label.check { color: var(--ink); font-size: 15px; }
 
   /* Top-level sections */
   #topnav {
-    display: flex; gap: 4px; overflow-x: auto; padding: 4px; margin: 10px 0 10px;
+    display: flex; gap: 4px; overflow-x: auto; padding: 4px; margin: 8px 0 10px;
     background: var(--card); border: 1px solid var(--line); border-radius: 999px;
   }
   #topnav button {
-    flex: 1; margin: 0; padding: 9px 10px; border: none; background: transparent;
-    white-space: nowrap; font-size: 15px; color: var(--muted); font-weight: 600;
+    flex: 1; margin: 0; padding: 8px 10px; border: none; background: transparent;
+    white-space: nowrap; font-size: 14px; color: var(--muted); font-weight: 600;
   }
-  #topnav button.active { background: var(--ink); color: #fff; }
+  #topnav button.active { background: var(--primary); color: #fff; }
 
   /* Sub-tabs */
   .subnav { display: flex; gap: 6px; margin: 6px 0 10px; flex-wrap: wrap; }
-  .subnav button { flex: 1; margin: 0; padding: 6px 8px; font-size: 15px; }
-  .subnav button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .subnav button { flex: 1; margin: 0; padding: 6px 8px; font-size: 14px; }
+  .subnav button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
   /* Recipe categories: light green, dark green when selected */
-  .subnav button.cat { background: #e3f5e6; border-color: #8fcf9d; color: #1d3d26; }
-  .subnav button.cat.active { background: #2e7d32; border-color: #2e7d32; color: #fff; }
+  .subnav button.cat { background: #DCF5E3; border-color: #8FD3A5; color: #14532D; }
+  .subnav button.cat.active { background: var(--ok); border-color: var(--ok); color: #fff; }
 
   /* Inventory storage tabs with their colours */
   .storage-nav { display: flex; gap: 6px; margin: 6px 0 10px; }
-  .storage-nav button { flex: 1; margin: 0; padding: 8px; font-size: 15px; font-weight: 700; border: 2px solid transparent; }
+  .storage-nav button { flex: 1; margin: 0; padding: 8px; font-size: 14px; font-weight: 700; border: 2px solid transparent; }
   .storage-nav button.active { outline: 3px solid var(--ink); outline-offset: 2px; }
   .storage-nav .st-freezer { background: #1d3f8f; color: #fff; }
   .storage-nav .st-fridge { background: #bfe6f7; color: #0b3b52; }
@@ -95,12 +99,14 @@
   .line {
     display: flex; align-items: center; gap: 6px; min-height: 40px;
     background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-    padding: 6px 10px; margin: 4px 0; font-size: 15px;
+    padding: 6px 10px; margin: 4px 0; font-size: 14px;
   }
   .line .mini { flex: none; }
   .line.st-freezer { border-left: 6px solid #1d3f8f; }
   .line.st-fridge { border-left: 6px solid #7cc8ec; }
   .line.st-pantry { border-left: 6px solid #a9784b; }
+  .invthumb { width: 40px; height: 40px; object-fit: cover; border-radius: 8px; flex: none; }
+  .invpreview { width: 120px; height: 120px; object-fit: cover; border-radius: 12px; display: block; margin: 6px 0 10px; }
   .ell { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .line input[type=checkbox] { margin: 0; flex: none; }
 
@@ -110,81 +116,84 @@
   .plan-add .pa-date { width: 124px; }
   .plan-add .pa-meal { width: 98px; }
   .plan-add .pa-serv { width: 58px; }
-  .plan-add button { border-radius: 10px; }
 
   .head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-  .head b { font-size: 18px; }
+  .head b { font-size: 17px; }
   .head h2 { margin: 12px 0 8px; }
 
-  .top-wrap {
-    background: #cdeed4; border: 1px solid #6fbf7f; border-radius: var(--radius);
-    padding: 12px; margin-top: 8px;
-  }
+  .top-wrap { background: #DDF3E4; border: 1px solid #8FD3A5; border-radius: var(--radius); padding: 12px; margin-top: 8px; }
 
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
-    padding: 14px 16px; margin: 10px 0; box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    padding: 13px 15px; margin: 10px 0; box-shadow: 0 1px 2px rgba(15,118,110,.05);
   }
-  .card b { font-size: 18px; }
+  .card b { font-size: 17px; }
   .warn { border-color: var(--danger); background: var(--danger-soft); }
-  .cooked { border-color: var(--accent); background: var(--accent-soft); }
-  .notice {
-    background: #fff8e6; border: 1px solid #f1d28a; border-radius: 10px;
-    padding: 10px 12px; font-size: 15px; margin-bottom: 10px;
-  }
-  .small { color: var(--muted); font-size: 14px; }
-  .driveb { font-weight: 700; color: #1d5fa8; margin: 2px 0; }
-  .hh { font-size: 14px; color: #7a4a00; background: #fff4df; border-radius: 8px; padding: 6px 8px; margin: 6px 0; }
-  .hhnow { color: #2e7d32; }
-  .alert { color: var(--danger); font-weight: 600; font-size: 14px; margin: 4px 0; }
-  .done { text-decoration: line-through; color: #9a9a9f; }
+  .cooked { border-color: var(--primary); background: var(--primary-soft); }
+  .notice { background: #FFF8E6; border: 1px solid #F1D28A; border-radius: 10px; padding: 10px 12px; font-size: 14px; margin-bottom: 10px; }
+  .small { color: var(--muted); font-size: 13px; }
+  .driveb { font-weight: 700; color: var(--primary); margin: 2px 0; }
+  .hh { font-size: 13px; color: #7A4300; background: #FFF1DE; border-radius: 8px; padding: 6px 8px; margin: 6px 0; }
+  .hhnow { color: var(--ok); }
+  .alert { color: var(--danger); font-weight: 600; font-size: 13px; margin: 4px 0; }
+  .done { text-decoration: line-through; color: #9AAAB2; }
 
-  .sync {
-    display: flex; flex-direction: column; gap: 6px; font-size: 14px;
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    padding: 10px 12px; margin-top: 18px;
-  }
-  .sync.err { background: var(--danger-soft); color: var(--danger); border-color: #f3c4bf; }
-  .sync button { font-size: 14px; padding: 6px 12px; margin: 0 4px 0 0; }
-
-  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  .row > * { flex: 1 1 140px; }
-  .check-grid label { display: block; margin: 8px 0; font-size: 16px; color: var(--ink); }
-
-  .thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; float: right; margin-left: 10px; }
+  /* Card with text on the left and picture on the right (each about half the width) */
+  .cardrow { display: flex; gap: 12px; align-items: flex-start; }
+  .cardtext { flex: 1 1 50%; min-width: 0; }
+  .cardpic { flex: 0 0 50%; max-width: 50%; }
+  .cardpic img { width: 100%; height: 130px; object-fit: cover; border-radius: 12px; display: block; }
   .gallery img { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; margin: 6px 4px 0 0; }
   .pphoto { width: 104px; text-align: center; margin: 4px; display: inline-block; vertical-align: top; }
   .pphoto img { width: 96px; height: 96px; object-fit: cover; border-radius: 10px; display: block; margin: 0 auto 4px; }
 
+  /* Nutrition facts block */
+  .nutri { background: #F0FAF8; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin: 8px 0; }
+  .nutri .nr { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .nutri .nr:last-child { border-bottom: none; }
+  .nutri .nr b { font-size: 14px; }
+
+  .sync {
+    display: flex; flex-direction: column; gap: 6px; font-size: 13px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 12px; margin-top: 18px;
+  }
+  .sync.err { background: var(--danger-soft); color: var(--danger); border-color: #F5B5B5; }
+  .sync button { font-size: 13px; padding: 5px 11px; margin: 0 4px 0 0; }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .row > * { flex: 1 1 140px; }
+  .check-grid label { display: block; margin: 8px 0; font-size: 15px; color: var(--ink); }
+
   .swipe-wrap { position: relative; margin: 12px 0; }
   .swipe-card {
     background: var(--card); border: 1px solid var(--line); border-radius: 18px;
-    padding: 20px; box-shadow: 0 6px 18px rgba(0,0,0,.08);
+    padding: 20px; box-shadow: 0 6px 18px rgba(15,118,110,.08);
     touch-action: none; user-select: none;
   }
   .swipe-card ul { padding-left: 20px; }
   .hint {
     position: absolute; top: 40%; left: 50%;
     transform: translate(-50%, -50%) scale(.85);
-    font-size: 34px; font-weight: 800; letter-spacing: 1px;
+    font-size: 32px; font-weight: 800; letter-spacing: 1px;
     padding: 8px 20px; border-radius: 14px; border: 4px solid;
-    background: rgba(255,255,255,.92); opacity: 0; pointer-events: none;
+    background: rgba(255,255,255,.94); opacity: 0; pointer-events: none;
     z-index: 5; transition: opacity .1s ease, transform .1s ease;
   }
-  .hint.save { opacity: 1; color: #2e7d32; border-color: #2e7d32; transform: translate(-50%, -50%) scale(1); }
-  .hint.pass { opacity: 1; color: #c62828; border-color: #c62828; transform: translate(-50%, -50%) scale(1); }
+  .hint.save { opacity: 1; color: var(--ok); border-color: var(--ok); transform: translate(-50%, -50%) scale(1); }
+  .hint.pass { opacity: 1; color: var(--danger); border-color: var(--danger); transform: translate(-50%, -50%) scale(1); }
   .swipe-btns { justify-content: center; margin: 8px 0 12px; }
 
   .photo { width: 100%; max-height: 260px; object-fit: cover; border-radius: var(--radius); margin: 8px 0; display: block; }
   .photo-actions { margin: 6px 0 10px; }
 
-  .stars { color: #e0a800; font-size: 18px; letter-spacing: 2px; margin: 4px 0; }
-  .stars .off { color: #d6d3cb; }
-  .stars-inline { color: #e0a800; font-size: 16px; letter-spacing: 1px; white-space: nowrap; }
-  .stars-inline .off { color: #d6d3cb; }
+  .stars { color: #E0A800; font-size: 17px; letter-spacing: 2px; margin: 4px 0; }
+  .stars .off { color: #D5DEDB; }
+  .stars-inline { color: #E0A800; font-size: 15px; letter-spacing: 1px; white-space: nowrap; }
+  .stars-inline .off { color: #D5DEDB; }
   .stars-pick { margin: 6px 0 10px; }
-  .stars-pick .star { font-size: 32px; color: #d6d3cb; cursor: pointer; padding: 0 4px; display: inline-block; user-select: none; }
-  .stars-pick .star.on { color: #e0a800; }
+  .stars-pick .star { font-size: 30px; color: #D5DEDB; cursor: pointer; padding: 0 4px; display: inline-block; user-select: none; }
+  .stars-pick .star.on { color: #E0A800; }
 
   #print { display: none; }
   @media print {
@@ -201,7 +210,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
 </head>
 <body>
-<h1>My Kitchen</h1>
+<div class="app-title">My Kitchen App</div>
 <nav id="topnav">
   <button data-sec="recipes" onclick="tab('recipes')">Recipes</button>
   <button data-sec="restaurants" onclick="tab('restaurants')">Restaurants</button>
@@ -279,27 +288,11 @@ const UNITS = {
 
 // Dropdown choices for the inventory form: [stored key, label]
 const UNIT_OPTIONS = [
-  ["count", "pcs (count)"],
-  ["g", "g (gram)"],
-  ["kg", "kg (kilogram)"],
-  ["oz", "oz (ounce, weight)"],
-  ["lb", "lb (pound)"],
-  ["ml", "ml (milliliter)"],
-  ["l", "l (liter)"],
-  ["tsp", "tsp (teaspoon)"],
-  ["tbsp", "tbsp (tablespoon)"],
-  ["cup", "cup"],
-  ["floz", "fl oz (fluid ounce)"],
-  ["pint", "pint"],
-  ["quart", "quart"],
-  ["gallon", "gallon"],
-  ["clove", "clove"],
-  ["can", "can"],
-  ["bottle", "bottle"],
-  ["bag", "bag"],
-  ["pack", "pack"],
-  ["bunch", "bunch"],
-  ["pinch", "pinch"]
+  ["count", "pcs (count)"], ["g", "g (gram)"], ["kg", "kg (kilogram)"], ["oz", "oz (ounce, weight)"],
+  ["lb", "lb (pound)"], ["ml", "ml (milliliter)"], ["l", "l (liter)"], ["tsp", "tsp (teaspoon)"],
+  ["tbsp", "tbsp (tablespoon)"], ["cup", "cup"], ["floz", "fl oz (fluid ounce)"], ["pint", "pint"],
+  ["quart", "quart"], ["gallon", "gallon"], ["clove", "clove"], ["can", "can"], ["bottle", "bottle"],
+  ["bag", "bag"], ["pack", "pack"], ["bunch", "bunch"], ["pinch", "pinch"]
 ];
 
 // Conversion factors to base units (grams for mass, milliliters for volume)
@@ -316,24 +309,29 @@ const DENSITY = {
   "cheese": 113, "cornstarch": 128, "salt": 288
 };
 
-// Approximate calories per 100 g (USDA-style reference values, rounded).
-const KCAL_PER_100G = {
-  "all-purpose flour": 364, "flour": 364, "sugar": 387, "brown sugar": 380, "powdered sugar": 389,
-  "butter": 717, "milk": 61, "whole milk": 61, "yogurt": 61, "cream": 340, "heavy cream": 340,
-  "cheese": 403, "cheddar": 403, "parmesan": 431, "mozzarella": 300,
-  "egg": 143, "eggs": 143,
-  "vegetable oil": 884, "oil": 884, "olive oil": 884,
-  "rice": 365, "oats": 389, "pasta": 371, "spaghetti": 371, "bread": 265,
-  "honey": 304, "maple syrup": 260, "cocoa powder": 228, "chocolate chips": 479,
-  "cornstarch": 381, "peanut butter": 588, "almond": 579, "walnut": 654, "almond flour": 571,
-  "chicken breast": 165, "chicken": 239, "ground beef": 250, "beef": 250, "bacon": 541,
-  "salmon": 208, "tuna": 132, "shrimp": 85, "tofu": 76,
-  "potato": 77, "onion": 40, "tomato": 18, "carrot": 41, "garlic": 149, "spinach": 23,
-  "broccoli": 34, "bell pepper": 31, "lettuce": 15, "cucumber": 15, "mushroom": 22,
-  "banana": 89, "apple": 52, "lemon juice": 22, "lemon": 29,
-  "soy sauce": 53, "ketchup": 112, "mayonnaise": 680, "tahini": 595,
-  "water": 0, "salt": 0, "black pepper": 251, "cinnamon": 247
+// Nutrition per 100 g: [calories kcal, protein g, fat g, carbohydrates g]
+// Rounded reference values for common ingredients. Estimates only.
+const NUTRI = {
+  "all-purpose flour": [364, 10.3, 1.0, 76.3], "flour": [364, 10.3, 1.0, 76.3], "bread flour": [361, 12.6, 1.5, 72.5],
+  "sugar": [387, 0, 0, 100], "brown sugar": [380, 0.1, 0, 98.1], "powdered sugar": [389, 0, 0, 99.8],
+  "butter": [717, 0.9, 81.1, 0.1],
+  "milk": [61, 3.2, 3.3, 4.8], "whole milk": [61, 3.2, 3.3, 4.8], "yogurt": [61, 3.5, 3.3, 4.7],
+  "cream": [340, 2.1, 36.1, 2.8], "heavy cream": [340, 2.1, 36.1, 2.8],
+  "cheese": [403, 24.9, 33.1, 1.3], "cheddar": [403, 24.9, 33.1, 1.3], "parmesan": [431, 38.5, 28.6, 4.1], "mozzarella": [300, 22.2, 22.4, 2.2],
+  "egg": [143, 12.6, 9.5, 0.7], "eggs": [143, 12.6, 9.5, 0.7],
+  "vegetable oil": [884, 0, 100, 0], "oil": [884, 0, 100, 0], "olive oil": [884, 0, 100, 0],
+  "rice": [365, 7.1, 0.7, 80], "oats": [389, 16.9, 6.9, 66.3], "pasta": [371, 13, 1.5, 75], "spaghetti": [371, 13, 1.5, 75], "bread": [265, 9, 3.2, 49],
+  "honey": [304, 0.3, 0, 82.4], "maple syrup": [260, 0, 0.1, 67], "cocoa powder": [228, 19.6, 13.7, 57.9], "chocolate chips": [479, 4.2, 30, 63],
+  "cornstarch": [381, 0.3, 0.1, 91.3], "peanut butter": [588, 25, 50, 20], "almond": [579, 21.2, 49.9, 21.6], "walnut": [654, 15.2, 65.2, 13.7], "almond flour": [571, 21.4, 49.9, 25],
+  "chicken breast": [165, 31, 3.6, 0], "chicken": [239, 27.3, 13.6, 0], "ground beef": [250, 26, 15, 0], "beef": [250, 26, 15, 0], "bacon": [541, 37, 42, 1.4],
+  "salmon": [208, 20.4, 13.4, 0], "tuna": [132, 28, 1, 0], "shrimp": [85, 20.1, 0.5, 0], "tofu": [76, 8.1, 4.8, 1.9],
+  "potato": [77, 2, 0.1, 17.5], "onion": [40, 1.1, 0.1, 9.3], "tomato": [18, 0.9, 0.2, 3.9], "carrot": [41, 0.9, 0.2, 9.6], "garlic": [149, 6.4, 0.5, 33.1],
+  "spinach": [23, 2.9, 0.4, 3.6], "broccoli": [34, 2.8, 0.4, 6.6], "bell pepper": [31, 1, 0.3, 6], "lettuce": [15, 1.4, 0.2, 2.9], "cucumber": [15, 0.7, 0.1, 3.6], "mushroom": [22, 3.1, 0.3, 3.3],
+  "banana": [89, 1.1, 0.3, 22.8], "apple": [52, 0.3, 0.2, 13.8], "lemon juice": [22, 0.4, 0.2, 6.9], "lemon": [29, 1.1, 0.3, 9.3],
+  "soy sauce": [53, 8.1, 0.6, 4.9], "ketchup": [112, 1.2, 0.1, 26], "mayonnaise": [680, 1, 75, 0.6], "tahini": [595, 17, 53.8, 21.2],
+  "water": [0, 0, 0, 0], "salt": [0, 0, 0, 0], "black pepper": [251, 10.4, 3.3, 63.9], "cinnamon": [247, 4, 1.2, 80.6]
 };
+
 // Approximate grams per single whole item, used when an ingredient is counted (e.g. "2 eggs")
 const GRAMS_PER_COUNT = {
   "egg": 50, "banana": 118, "apple": 182, "onion": 110, "potato": 170,
@@ -439,6 +437,7 @@ function parseQty(s) {
   return { v, len: m[0].length };
 }
 function fmt(n) { return String(Math.round(n * 100) / 100); }
+function round1(n) { return Math.round(n * 10) / 10; }
 function scaleLine(line, factor) {
   const q = parseQty(line);
   if (!q) return line;
@@ -520,10 +519,16 @@ function fmtAmount(kind, base) {
 }
 function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
-// Stars next to a title, e.g. ★★★☆☆ (inline version for headers)
+// Stars next to a title, e.g. ★★★☆☆. Unrated items show nothing.
 function starsInline(n) {
-  if (!n) return `<span class="small">Not rated yet</span>`;
+  if (!n) return "";
   return `<span class="stars-inline" aria-label="${n} of 5 stars">${"★".repeat(n)}<span class="off">${"★".repeat(5 - n)}</span></span>`;
+}
+
+// Puts the title picture on the right half of a card, with the text on the left half.
+function cardWithPic(photo, inner) {
+  if (!photo) return inner;
+  return `<div class="cardrow"><div class="cardtext">${inner}</div><div class="cardpic"><img src="${photo}" alt=""></div></div>`;
 }
 
 // ---- Temperatures ----
@@ -670,7 +675,7 @@ async function uploadSnapshot(snap) {
 }
 
 function snapshot() {
-  return { version: 4, updatedAt: localUpdated(), recipes, inventory, plan, places, shop, swipe, profile };
+  return { version: 6, updatedAt: localUpdated(), recipes, inventory, plan, places, shop, swipe, profile };
 }
 
 function applySnapshot(s) {
@@ -812,7 +817,7 @@ function placesFamilyHtml() {
     p.driveMin != null ? p.driveMin + " min from home" : "",
     visitCount(p) ? "visited " + visitCount(p) + "×, last " + fmtDate(lastVisit(p)) : ""
   ].filter(Boolean).map(esc).join(" · ");
-  const restHtml = rest.map(p => `<li><b>${esc(p.name)}</b>${p.cuisine ? " (" + esc(p.cuisine) + ")" : ""}<br>${extra(p)}${p.happyHour ? `<br>🍸 Happy Hour: ${esc(hhLine(p))}${p.hhDeal ? " – " + esc(p.hhDeal) : ""}` : ""}${p.notes ? `<br>${esc(p.notes)}` : ""}</li>`).join("");
+  const restHtml = rest.map(p => `<li><b>${esc(p.name)}</b>${p.cuisine ? " (" + esc(p.cuisine) + ")" : ""}<br>${extra(p)}${p.happyHour ? `<br>Happy Hour: ${esc(hhLine(p))}${p.hhDeal ? " – " + esc(p.hhDeal) : ""}` : ""}${p.notes ? `<br>${esc(p.notes)}` : ""}</li>`).join("");
   const playHtml = play.map(p => `<li><b>${esc(p.name)}</b> (${esc(p.zone || "")})${p.price ? " · " + esc(p.price) : ""}<br>${extra(p)}${p.notes ? `<br>${esc(p.notes)}` : ""}</li>`).join("");
   return `<h2>Restaurants</h2>${restHtml ? `<ul>${restHtml}</ul>` : "<p>No restaurants yet.</p>"}
     <h2>Playgrounds</h2>${playHtml ? `<ul>${playHtml}</ul>` : "<p>No playgrounds yet.</p>"}`;
@@ -820,10 +825,16 @@ function placesFamilyHtml() {
 
 // Builds a simple HTML page. Google Drive converts it into a Google Doc.
 function familyHtml() {
-  const recs = recipes.map(r => `<h2>${esc(r.title)}</h2>
+  const recs = recipes.map(r => {
+    const n = profile.showCalories ? nutrition(r) : null;
+    const nut = n && !(n.kcal === 0 && n.missing === r.ingredients.length)
+      ? `<p>Per serving: ${Math.round(n.kcal)} kcal · Protein ${round1(n.protein)} g · Fat ${round1(n.fat)} g · Carbohydrates ${round1(n.carbs)} g (estimate)</p>` : "";
+    return `<h2>${esc(r.title)}</h2>
     <p>${esc(catOf(r))} · Serves ${r.servings} · Active ${r.activeMin} min · Total ${r.totalMin} min${r.rating ? " · Rating " + r.rating + "/5" : ""}</p>
+    ${nut}
     <h3>Ingredients</h3><ul>${r.ingredients.map(i => `<li>${esc(i)}</li>`).join("")}</ul>
-    <h3>Steps</h3><ol>${r.steps.map(s => `<li>${esc(tempText(s))}</li>`).join("")}</ol>`).join("");
+    <h3>Steps</h3><ol>${r.steps.map(s => `<li>${esc(tempText(s))}</li>`).join("")}</ol>`;
+  }).join("");
   const inv = inventory.filter(i => !i.used).map(i =>
     `<li>${esc(i.name)} · ${esc(i.qty)} ${esc(unitLabel(i.unit))} · ${esc(i.storage)}${i.expiry ? " · Exp. " + esc(fmtDate(i.expiry)) : ""}</li>`).join("");
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Our Kitchen</title></head><body>
@@ -962,7 +973,7 @@ function parseRecipeText(text) {
   return out;
 }
 
-// ---- Allergens and calories ----
+// ---- Allergens and nutrition ----
 function recipeAllergens(r) {
   const text = r.ingredients.join(" ").toLowerCase();
   return ALLERGENS.filter(a => a.words.some(w => new RegExp("\\b" + w + "s?\\b").test(text)));
@@ -978,8 +989,10 @@ function allergenBadge(r) {
   return `<div class="small">Contains: ${esc(found.map(a => a.label).join(", "))}</div>`;
 }
 
+// Totals calories, protein, fat and carbohydrates for the whole recipe, then divides by servings.
 function nutrition(r) {
-  let total = 0, missing = 0;
+  const tot = { kcal: 0, protein: 0, fat: 0, carbs: 0 };
+  let missing = 0;
   for (const line of r.ingredients) {
     const p = parseIng(line);
     if (p.qty === null || !p.name) { missing++; continue; }
@@ -991,20 +1004,44 @@ function nutrition(r) {
       const need = normalizeNeed(p.qty, p.unit, p.name);
       if (need.kind === "mass") grams = need.amount;
     }
-    const kcal = lookup(p.name, KCAL_PER_100G);
-    if (grams === null || kcal === null) { missing++; continue; }
-    total += grams / 100 * kcal;
+    const n = lookup(p.name, NUTRI);
+    if (grams === null || n === null) { missing++; continue; }
+    tot.kcal += grams / 100 * n[0];
+    tot.protein += grams / 100 * n[1];
+    tot.fat += grams / 100 * n[2];
+    tot.carbs += grams / 100 * n[3];
   }
-  return { perServing: total / (r.servings || 1), missing };
+  const s = r.servings || 1;
+  return {
+    kcal: tot.kcal / s, protein: tot.protein / s, fat: tot.fat / s, carbs: tot.carbs / s, missing
+  };
 }
 
-function calorieLine(r) {
+// One-line summary for lists and cards.
+function nutriLine(r) {
   if (!profile.showCalories) return "";
   const n = nutrition(r);
-  if (n.perServing === 0 && n.missing === r.ingredients.length) {
-    return `<div class="small">Calories: not enough data to estimate</div>`;
+  if (n.kcal === 0 && n.missing === r.ingredients.length) {
+    return `<div class="small">Nutrition: not enough data to estimate</div>`;
   }
-  return `<div class="small">About ${Math.round(n.perServing)} kcal per serving${n.missing ? ` · ${n.missing} ingredient(s) not counted` : ""}</div>`;
+  return `<div class="small">${Math.round(n.kcal)} kcal · Protein ${round1(n.protein)} g · Fat ${round1(n.fat)} g · Carbs ${round1(n.carbs)} g per serving${n.missing ? ` · ${n.missing} ingredient(s) not counted` : ""}</div>`;
+}
+
+// Full "Nutrition facts" block for the recipe page.
+function nutriBlock(r) {
+  if (!profile.showCalories) return "";
+  const n = nutrition(r);
+  if (n.kcal === 0 && n.missing === r.ingredients.length) {
+    return `<div class="small">Nutrition: not enough data to estimate</div>`;
+  }
+  return `<div class="nutri">
+    <div class="small" style="margin-bottom:4px">Nutrition facts (per serving, estimate)</div>
+    <div class="nr"><span>Calories</span><b>${Math.round(n.kcal)} kcal</b></div>
+    <div class="nr"><span>Protein</span><b>${round1(n.protein)} g</b></div>
+    <div class="nr"><span>Fat</span><b>${round1(n.fat)} g</b></div>
+    <div class="nr"><span>Carbohydrates</span><b>${round1(n.carbs)} g</b></div>
+    ${n.missing ? `<div class="small" style="margin-top:4px">${n.missing} ingredient(s) not counted</div>` : ""}
+  </div>`;
 }
 
 // ---- Print and share ----
@@ -1078,15 +1115,14 @@ function cookNowView() {
   const top = rows.slice(0, 3);
   if (!top.length) return h + `<p>No recipes to compare yet.</p>`;
   for (const x of top) {
-    h += `<div class="card">
-      <div class="head"><b>${esc(x.r.title)}</b>${starsInline(x.r.rating)}</div>
+    const inner = `<div class="head"><b>${esc(x.r.title)}</b>${starsInline(x.r.rating)}</div>
       <div class="small">You have ${x.have} of ${x.total} ingredients · Active ${x.r.activeMin} min</div>
       ${x.missing.length
         ? `<div class="small">Missing: ${esc(x.missing.map(cap).join(", "))}</div>`
         : `<div class="small">You have everything for this recipe.</div>`}
       ${allergenBadge(x.r)}
-      <button class="mini" onclick="openRecipe('${x.r.id}')">Open</button>
-    </div>`;
+      <button class="mini" onclick="openRecipe('${x.r.id}')">Open</button>`;
+    h += `<div class="card">${cardWithPic(x.r.photo, inner)}</div>`;
   }
   return h;
 }
@@ -1196,22 +1232,26 @@ function recipeSection() {
 function profileView() {
   const boxes = ALLERGENS.map(a =>
     `<label><input type="checkbox" id="al_${a.key}" ${profile.allergens.includes(a.key) ? "checked" : ""}>${a.label}</label>`).join("");
+  const langChip = lang === "de" ? "🌐 Sprache · Deutsch" : "🌐 Language · English";
+  const homeChip = profile.homeAddress
+    ? `📍 ${esc(profile.homeAddress)}`
+    : (lang === "de" ? "📍 Heimatadresse · nicht gesetzt" : "📍 Home address · not set");
   const homeState = profile.homeAddress
     ? (profile.homeLat != null ? `<p class="small">✓ Location found. Driving times are shown on Restaurants and Playgrounds.</p>` : `<p class="small">Looking up location… it appears after you save.</p>`)
     : `<p class="small">No home address yet.</p>`;
-  return `<h2>Household profile</h2>
-    <button onclick="toggleLang()">${lang === "de" ? "English" : "Deutsch"}</button>
-    <label>Default servings for new recipes <input id="pServ" type="number" min="1" max="12" value="${profile.defaultServings}"></label>
-    <h3>Home address</h3>
-    <p class="small">Used to calculate driving time to restaurants and playgrounds.</p>
-    <input id="pHome" placeholder="Street, postcode, city" value="${esc(profile.homeAddress || "")}">
+  return `<h2>Settings</h2>
+    <div class="row-btns">
+      <button class="chip" onclick="toggleLang()">${langChip}</button>
+      <button class="chip" onclick="editHomeChip()">${homeChip}</button>
+    </div>
     ${homeState}
+    <label>Default servings for new recipes <input id="pServ" type="number" min="1" max="12" value="${profile.defaultServings}"></label>
     <h3>Allergies</h3>
     <p class="small">Recipes that contain these show a red warning. Warnings are based on ingredient names, so always read labels.</p>
     <div class="check-grid">${boxes}</div>
-    <h3>Calories</h3>
-    <label><input type="checkbox" id="pCal" ${profile.showCalories ? "checked" : ""}>Show calorie estimates</label>
-    <p class="small">Estimates use a built-in list of common ingredients. Unlisted ingredients are not counted.</p>
+    <h3>Nutrition</h3>
+    <label class="check"><input type="checkbox" id="pCal" ${profile.showCalories ? "checked" : ""}>Show nutrition estimates</label>
+    <p class="small">Calories, protein, fat and carbohydrates per serving. Estimates use a built-in list of common ingredients. Unlisted ingredients are not counted.</p>
     <h3>Shared kitchen</h3>
     <p class="small">For Olga: opens the kitchen file you shared with her, so you both use the same recipes and inventory.</p>
     <button onclick="openSharedPicker()">Open shared kitchen</button>
@@ -1219,29 +1259,36 @@ function profileView() {
     <p class="small">A read-only page of your recipes, inventory, restaurants and playgrounds for family members. Anyone with the link can view it, but no one can edit it. It does not update automatically, so press the button after making changes.</p>
     ${familyLinkHtml()}
     <button onclick="publishFamilyView()">Update family view</button>
-    <h3>Profile</h3>
-    <button onclick="saveProfileForm()">Save profile</button>`;
+    <h3>Save</h3>
+    <button onclick="saveProfileForm()">Save settings</button>`;
+}
+
+// Tapping the home chip asks for the address and looks it up.
+function editHomeChip() {
+  const v = prompt(lang === "de" ? "Heimatadresse (Straße, PLZ, Ort):" : "Home address (street, postcode, city):", profile.homeAddress || "");
+  if (v === null) return;
+  const addr = v.trim();
+  if (addr === (profile.homeAddress || "")) return;
+  profile = { ...profile, homeAddress: addr, homeLat: null, homeLng: null, homeFor: "" };
+  saveProfile();
+  if (addr) {
+    alert(lang === "de" ? "Gespeichert. Standort wird gesucht…" : "Saved. Looking up your home address…");
+    updateHome();
+  } else {
+    render();
+  }
 }
 
 function saveProfileForm() {
-  const newAddr = document.getElementById("pHome").value.trim();
-  const addrChanged = newAddr !== (profile.homeAddress || "");
   profile = {
     ...profile,
     defaultServings: +document.getElementById("pServ").value || 4,
     allergens: ALLERGENS.filter(a => document.getElementById("al_" + a.key).checked).map(a => a.key),
-    showCalories: document.getElementById("pCal").checked,
-    homeAddress: newAddr
+    showCalories: document.getElementById("pCal").checked
   };
-  if (addrChanged) { profile.homeLat = null; profile.homeLng = null; profile.homeFor = ""; }
   saveProfile();
-  if (addrChanged && newAddr) {
-    alert("Profile saved. Looking up your home address…");
-    updateHome();
-  } else {
-    alert("Profile saved.");
-    render();
-  }
+  alert("Settings saved.");
+  render();
 }
 
 // ---- Addresses and driving time (OpenStreetMap lookup + OSRM route service, both free) ----
@@ -1374,7 +1421,7 @@ function placesSection() {
   if (pmode.mode !== "list") return placeForm(kind, pmode.id);
   const note = distMsg ? `<p class="small">${esc(distMsg)}</p>` : "";
   const noHome = !profile.homeAddress
-    ? `<p class="small">Set your home address in ⚙ Profile to see driving time from home.</p>`
+    ? `<p class="small">Set your home address in ⚙ Settings to see driving time from home.</p>`
     : "";
   return note + noHome + (kind === "restaurant" ? restaurantsView() : playgroundsView());
 }
@@ -1395,7 +1442,7 @@ function closePlaceForm() {
 
 // Driving time line under each place.
 function driveLine(p) {
-  if (!profile.homeAddress) return `<div class="small">Set your home address in ⚙ Profile to see driving time.</div>`;
+  if (!profile.homeAddress) return `<div class="small">Set your home address in ⚙ Settings to see driving time.</div>`;
   if (!p.address) return `<div class="small">Add an address to see driving time.</div>`;
   if (p.distErr) return `<div class="small">Driving time not found: ${esc(p.distErr)}. Check the address.</div>`;
   if (p.driveMin == null) return `<div class="small">Driving time is being calculated…</div>`;
@@ -1408,11 +1455,10 @@ function navLink(p) {
   return `<a class="mini" href="${url}" target="_blank" rel="noopener">Navigate</a>`;
 }
 
-// One place card. Restaurants show the Happy Hour block; both show photos, visits and history.
+// One place card. Restaurants show the Happy Hour block; the title photo sits on the right.
 function placeCard(p) {
   const isR = p.kind === "restaurant";
   const photos = p.photos || [];
-  const titleImg = photos.length ? `<img class="thumb" src="${photos[0]}" alt="">` : "";
   const gallery = photos.length > 1 ? `<div class="gallery">${photos.slice(1).map(s => `<img src="${s}" alt="">`).join("")}</div>` : "";
   const hh = isR && p.happyHour
     ? `<div class="hh">${hhNow(p) ? `<b class="hhnow">🍸 Happy Hour now!</b> · ` : "🍸 "}${esc(hhLine(p))}${p.hhDeal ? `<br>${esc(p.hhDeal)}` : ""}</div>`
@@ -1424,8 +1470,7 @@ function placeCard(p) {
         `<div class="small">${fmtDate(v.date)}${v.note ? " · " + esc(v.note) : ""}</div>`).join("")}</details>`
     : "";
   const meta = [isR ? p.cuisine : p.zone, isR ? "" : p.price, p.notes].filter(Boolean).map(esc).join(" · ");
-  return `<div class="card">${titleImg}
-    <div class="head"><b>${isR && p.happyHour ? "🍸 " : ""}${esc(p.name)}</b>${starsInline(p.rating)}</div>
+  const inner = `<div class="head"><b>${isR && p.happyHour ? "🍸 " : ""}${esc(p.name)}</b>${starsInline(p.rating)}</div>
     ${p.address ? `<div class="small">📍 ${esc(p.address)}</div>` : ""}
     ${driveLine(p)}
     ${hh}
@@ -1435,8 +1480,8 @@ function placeCard(p) {
     ${gallery}
     ${navLink(p)}
     <button class="mini" onclick="logVisit('${p.id}')">+ Visit</button>
-    <button class="mini" onclick="openPlaceForm('${p.kind}','${p.id}')">Edit</button>
-  </div>`;
+    <button class="mini" onclick="openPlaceForm('${p.kind}','${p.id}')">Edit</button>`;
+  return `<div class="card">${cardWithPic(photos[0], inner)}</div>`;
 }
 
 function restaurantsView() {
@@ -1534,9 +1579,9 @@ function drawPlacePhotos() {
   const box = document.getElementById("pphotos");
   if (!box) return;
   box.innerHTML = pDraftPhotos.map((src, i) => `<div class="pphoto">
-      <img src="${src}" alt="" style="${i === 0 ? "outline:3px solid #2e7d32" : ""}">
+      <img src="${src}" alt="" style="${i === 0 ? "outline:3px solid #0F766E" : ""}">
       ${i === 0
-        ? `<div class="small" style="color:#2e7d32;font-weight:700">Title photo</div>`
+        ? `<div class="small" style="color:#0F766E;font-weight:700">Title photo</div>`
         : `<button class="mini" onclick="setTitlePhoto(${i})">Make title</button>`}
       <button class="mini" onclick="removePlacePhoto(${i})">✕</button>
     </div>`).join("") || `<p class="small">No photos yet.</p>`;
@@ -1671,28 +1716,26 @@ function pickResult() {
   if (x.type === "recipes") {
     const r = recipes.find(y => y.id === x.id);
     if (!r) return "";
-    return `<div class="card" style="margin-bottom:0">
-      <div class="head"><b>🎲 ${esc(r.title)}</b>${starsInline(r.rating)}</div>
+    const inner = `<div class="head"><b>🎲 ${esc(r.title)}</b>${starsInline(r.rating)}</div>
       <div class="small">${esc(CAT_LABEL[catOf(r)])} · Active ${r.activeMin} min</div>
       <button class="mini" onclick="openRecipe('${r.id}')">Open</button>
-      <button class="mini" onclick="pickNow('recipes')">Pick another</button>
-    </div>`;
+      <button class="mini" onclick="pickNow('recipes')">Pick another</button>`;
+    return `<div class="card" style="margin-bottom:0">${cardWithPic(r.photo, inner)}</div>`;
   }
   const p = places.find(y => y.id === x.id);
   if (!p) return "";
-  return `<div class="card" style="margin-bottom:0">
-    <div class="head"><b>🎲 ${p.kind === "restaurant" && p.happyHour ? "🍸 " : ""}${esc(p.name)}</b>${starsInline(p.rating)}</div>
+  const inner = `<div class="head"><b>🎲 ${p.kind === "restaurant" && p.happyHour ? "🍸 " : ""}${esc(p.name)}</b>${starsInline(p.rating)}</div>
     ${driveLine(p)}
     ${navLink(p)}
     <button class="mini" onclick="openPlaceForm('${p.kind}','${p.id}')">Edit</button>
-    <button class="mini" onclick="pickNow('${x.type}')">Pick another</button>
-  </div>`;
+    <button class="mini" onclick="pickNow('${x.type}')">Pick another</button>`;
+  return `<div class="card" style="margin-bottom:0">${cardWithPic((p.photos || [])[0], inner)}</div>`;
 }
 
 // ---- Recipes ----
-// Read-only stars for the recipe list, e.g. ★★★☆☆
+// Read-only stars for the recipe list. Unrated recipes show nothing.
 function starsHtml(n) {
-  if (!n) return `<div class="small">Not rated yet</div>`;
+  if (!n) return "";
   return `<div class="stars" aria-label="${n} of 5 stars">${"★".repeat(n)}<span class="off">${"★".repeat(5 - n)}</span></div>`;
 }
 
@@ -1749,14 +1792,14 @@ function listView() {
     </select></label>`;
   if (!shown.length) h += `<p>No ${cap(recipeCat.toLowerCase())} recipes yet.</p>`;
   for (const r of shown) {
-    h += `<div class="card">${r.photo ? `<img class="thumb" src="${r.photo}" alt="">` : ""}
-      <div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
+    const inner = `<div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
       <div class="small">Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
       <div class="small">Cooked ${r.cookCount || 0}×</div>
-      ${calorieLine(r)}
+      ${nutriLine(r)}
       ${allergenBadge(r)}
       <button class="mini" onclick="go('show','${r.id}')">Open</button>
-      <button class="mini" onclick="editRecipe('${r.id}')">Edit</button></div>`;
+      <button class="mini" onclick="editRecipe('${r.id}')">Edit</button>`;
+    h += `<div class="card">${cardWithPic(r.photo, inner)}</div>`;
   }
   return h;
 }
@@ -1852,7 +1895,7 @@ function showView(id) {
     ${hasAllergens ? `<div class="small">Based on ingredient names. Always read labels.</div>` : ""}
     <div class="small">${esc(CAT_LABEL[catOf(r)])} · Active ${r.activeMin} min · Total ${r.totalMin} min</div>
     <div class="small">Cooked ${r.cookCount || 0}×</div>
-    ${calorieLine(r)}
+    ${nutriBlock(r)}
     ${ratingBar(r)}
     <div class="small">Source: ${esc(r.source || "Manual entry")}</div>
     <label>Servings <input type="number" min="1" value="${view.servings}"
@@ -1879,7 +1922,7 @@ function deleteRecipe(id) {
   go("list");
 }
 
-// ---- Recipe photos ----
+// ---- Photos (recipes, places and inventory) ----
 // Shrinks a photo to maxW pixels wide and compresses it, so it stays small in the sync file.
 function shrinkImage(file, maxW = 800) {
   return new Promise((resolve, reject) => {
@@ -1921,6 +1964,29 @@ function clearPhoto() {
   p.style.display = "none";
 }
 
+// Inventory photo: stored per item, compressed to 240 px to keep the sync file small.
+async function pickInvPhoto(input) {
+  const file = input.files[0];
+  input.value = "";
+  if (!file) return;
+  try {
+    const data = await shrinkImage(file, 240);
+    document.getElementById("invPhotoData").value = data;
+    const p = document.getElementById("invPhotoPreview");
+    p.src = data;
+    p.style.display = "block";
+  } catch (e) {
+    alert("Photo problem: " + e.message);
+  }
+}
+
+function clearInvPhoto() {
+  document.getElementById("invPhotoData").value = "";
+  const p = document.getElementById("invPhotoPreview");
+  p.removeAttribute("src");
+  p.style.display = "none";
+}
+
 // ---- Swipe inspiration ----
 function swipeDeck() {
   const seen = new Set([...swipe.liked, ...swipe.passed]);
@@ -1950,7 +2016,7 @@ function swipeView() {
       <div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
       <div class="small">${esc(CAT_LABEL[catOf(r)])} · Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
       <div class="small">Cooked ${r.cookCount || 0}×</div>
-      ${calorieLine(r)}
+      ${nutriLine(r)}
       ${allergenBadge(r)}
       <ul>${r.ingredients.slice(0, 6).map(i => `<li>${esc(i)}</li>`).join("")}${r.ingredients.length > 6 ? `<li class="small">…and ${r.ingredients.length - 6} more</li>` : ""}</ul>
       <button onclick="openRecipe('${r.id}')">Open full recipe</button>
@@ -1965,9 +2031,10 @@ function savedList() {
   let h = `<h3>Saved (${saved.length})</h3>`;
   if (!saved.length) h += `<p class="small">Nothing saved yet.</p>`;
   for (const r of saved) {
-    h += `<div class="card"><div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
+    const inner = `<div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
       <div class="small">Active ${r.activeMin} min · Serves ${r.servings}</div>
-      <button class="mini" onclick="openRecipe('${r.id}')">Open</button></div>`;
+      <button class="mini" onclick="openRecipe('${r.id}')">Open</button>`;
+    h += `<div class="card">${cardWithPic(r.photo, inner)}</div>`;
   }
   return h;
 }
@@ -1977,9 +2044,10 @@ function passedList() {
   let h = `<h3>Passed (${passed.length})</h3>`;
   if (!passed.length) h += `<p class="small">Nothing passed yet.</p>`;
   for (const r of passed) {
-    h += `<div class="card"><div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
+    const inner = `<div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
       <div class="small">Active ${r.activeMin} min · Serves ${r.servings}</div>
-      <button class="mini" onclick="openRecipe('${r.id}')">Open</button></div>`;
+      <button class="mini" onclick="openRecipe('${r.id}')">Open</button>`;
+    h += `<div class="card">${cardWithPic(r.photo, inner)}</div>`;
   }
   return h;
 }
@@ -2079,6 +2147,7 @@ function inventoryView() {
       left = `<span>${txt}</span>`;
     }
     h += `<div class="line st-${i.storage} ${urgent ? "warn" : ""}">
+      ${i.photo ? `<img class="invthumb" src="${i.photo}" alt="">` : ""}
       <span class="ell"><b>${esc(i.name)}</b> · ${esc(i.qty)} ${esc(unitLabel(i.unit))} · ${left}${exp ? " · " + esc(exp) : ""}</span>
       <button class="mini" onclick="go('editItem','${i.id}')">Edit</button>
       <button class="mini" onclick="useUp('${i.id}')">Used</button>
@@ -2095,8 +2164,18 @@ function unitSelect(current) {
 }
 
 function itemForm(item) {
-  const i = item || { name: "", qty: "1", unit: "count", storage: invTab, expiry: "" };
+  const i = item || { name: "", qty: "1", unit: "count", storage: invTab, expiry: "", photo: "" };
+  const photoNow = i.photo || "";
   return `<h2>${item ? "Edit item" : "New item"}</h2>
+    <div class="photo-actions">
+      ${photoNow ? `<img class="invpreview" id="invPhotoPreview" src="${photoNow}" alt="">` : `<img class="invpreview" id="invPhotoPreview" style="display:none" alt="">`}
+      <input type="hidden" id="invPhotoData" value="${photoNow}">
+      <button class="mini" onclick="document.getElementById('invCam').click()">📷 Take photo</button>
+      <button class="mini" onclick="document.getElementById('invGal').click()">🖼 Choose photo</button>
+      ${photoNow ? `<button class="mini" onclick="clearInvPhoto()">Remove photo</button>` : ""}
+    </div>
+    <input type="file" id="invCam" accept="image/*" capture="environment" style="display:none" onchange="pickInvPhoto(this)">
+    <input type="file" id="invGal" accept="image/*" style="display:none" onchange="pickInvPhoto(this)">
     <input id="n" placeholder="Name (e.g. Milk)" value="${esc(i.name)}">
     <label>Quantity <input id="q" value="${esc(i.qty)}"></label>
     <label>Unit ${unitSelect(i.unit)}</label>
@@ -2121,7 +2200,8 @@ function saveItem(id) {
     storage,
     expiry,
     expirySource,
-    quality: "best by"
+    quality: "best by",
+    photo: document.getElementById("invPhotoData").value || undefined
   };
   if (id) {
     Object.assign(inventory.find(x => x.id === id), data);
@@ -2702,20 +2782,27 @@ const DE = {
   "Share file": "Datei teilen", "Edit recipe": "Rezept bearbeiten", "Delete recipe": "Rezept löschen",
   "← Back": "← Zurück", "Save": "Speichern", "Cancel": "Abbrechen", "Delete": "Löschen",
   "Rating": "Bewertung", "Ingredients": "Zutaten", "Steps": "Zubereitung", "Servings": "Portionen",
-  "Title": "Titel", "Not rated yet": "Noch nicht bewertet", "Name": "Name", "Notes (optional)": "Notizen (optional)",
+  "Title": "Titel", "Name": "Name", "Notes (optional)": "Notizen (optional)",
   "Cuisine (optional)": "Küche (optional)", "Good Happy Hour 🍸": "Gute Happy Hour 🍸",
   "Happy Hour days": "Happy-Hour-Tage", "Happy Hour deal (one line)": "Happy-Hour-Angebot (eine Zeile)",
   "Daily": "Täglich", "Type": "Art", "Price (optional, e.g. \"€5 per visit\")": "Preis (optional, z. B. \"5 € pro Besuch\")",
   "Address (for driving time)": "Adresse (für Fahrzeit)", "Street, postcode, city": "Straße, PLZ, Ort",
-  "Home address": "Heimatadresse", "Navigate": "Navigieren",
+  "Navigate": "Navigieren",
   "+ Visit": "+ Besuch", "Visited": "Besucht", "Not visited yet": "Noch nicht besucht",
   "Visit history": "Besuchsverlauf", "Visit note (optional, e.g. what you ate or played):": "Notiz zum Besuch (optional, z. B. was gegessen oder gespielt wurde):",
   "🍸 Happy Hour now!": "🍸 Happy Hour jetzt!",
   "Photos (max. 4)": "Fotos (max. 4)", "Title photo": "Titelfoto", "Make title": "Als Titel",
   "No photos yet.": "Noch keine Fotos.",
+  "Settings": "Einstellungen", "Save settings": "Einstellungen speichern", "Settings saved.": "Einstellungen gespeichert.",
+  "Nutrition": "Nährwerte", "Calories": "Kalorien", "Protein": "Eiweiß", "Fat": "Fett", "Carbohydrates": "Kohlenhydrate",
+  "Show nutrition estimates": "Nährwertschätzung anzeigen",
+  "Nutrition facts (per serving, estimate)": "Nährwerte (pro Portion, Schätzung)",
+  "Nutrition: not enough data to estimate": "Nährwerte: nicht genug Daten für eine Schätzung",
+  "Calories, protein, fat and carbohydrates per serving. Estimates use a built-in list of common ingredients. Unlisted ingredients are not counted.":
+    "Kalorien, Eiweiß, Fett und Kohlenhydrate pro Portion. Schätzungen basieren auf einer eingebauten Liste gängiger Zutaten. Nicht aufgeführte Zutaten werden nicht gezählt.",
   "Used to calculate driving time to restaurants and playgrounds.": "Wird für die Fahrzeit zu Restaurants und Spielplätzen genutzt.",
-  "Set your home address in ⚙ Profile to see driving time from home.": "Trage deine Heimatadresse unter ⚙ Profil ein, um die Fahrzeit zu sehen.",
-  "Set your home address in ⚙ Profile to see driving time.": "Trage deine Heimatadresse unter ⚙ Profil ein, um die Fahrzeit zu sehen.",
+  "Set your home address in ⚙ Settings to see driving time from home.": "Trage deine Heimatadresse unter ⚙ Einstellungen ein, um die Fahrzeit zu sehen.",
+  "Set your home address in ⚙ Settings to see driving time.": "Trage deine Heimatadresse unter ⚙ Einstellungen ein, um die Fahrzeit zu sehen.",
   "Add an address to see driving time.": "Adresse eintragen, um die Fahrzeit zu sehen.",
   "Driving time is being calculated…": "Fahrzeit wird berechnet…",
   "+ Add restaurant": "+ Restaurant", "+ Add playground": "+ Spielplatz", "Library": "Bibliothek", "Paid": "Kostenpflichtig",
@@ -2726,11 +2813,11 @@ const DE = {
   "Mark cooked": "Als gekocht markieren", "Cooked": "Gekocht", "Undo": "Rückgängig", "Remove": "Entfernen",
   "Build shopping list": "Einkaufsliste erstellen", "Uncheck all": "Alle abhaken", "Copy list": "Liste kopieren",
   "Extra items": "Extra-Artikel", "Add": "Hinzufügen", "Shopping list": "Einkaufsliste",
-  "Household profile": "Haushaltsprofil", "Default servings for new recipes": "Standard-Portionen für neue Rezepte",
-  "Allergies": "Allergien", "Calories": "Kalorien", "Show calorie estimates": "Kalorienschätzung anzeigen",
+  "Default servings for new recipes": "Standard-Portionen für neue Rezepte",
+  "Allergies": "Allergien",
   "Shared kitchen": "Gemeinsame Küche", "Open shared kitchen": "Gemeinsame Küche öffnen",
   "Family view": "Familienansicht", "Update family view": "Familienansicht aktualisieren",
-  "Save profile": "Profil speichern", "Inspiration": "Inspiration", "✕ Pass": "✕ Weiter",
+  "Inspiration": "Inspiration", "✕ Pass": "✕ Weiter",
   "♥ Save": "♥ Merken", "Show all again": "Alle wieder anzeigen", "Saved": "Gemerkt", "Passed": "Weitergeklickt",
   "Take photo": "Foto aufnehmen", "📷 Take photo": "📷 Foto aufnehmen", "🖼 Choose photo": "🖼 Foto wählen",
   "Remove photo": "Foto entfernen", "New recipe": "Neues Rezept", "Review recipe": "Rezept prüfen",
@@ -2762,7 +2849,8 @@ const DE_PATTERNS = [
   [/^expired (\d+) days? ago$/, "abgelaufen vor $1 Tag(en)"],
   [/^expires today$/, "läuft heute ab"],
   [/^🚗 (\d+) min from home$/, "🚗 $1 Min. von zu Hause"],
-  [/^Visited (\d+)× · last (.+)$/, "Besucht $1× · zuletzt $2"]
+  [/^Visited (\d+)× · last (.+)$/, "Besucht $1× · zuletzt $2"],
+  [/^(\d+) kcal · Protein (.+?) g · Fat (.+?) g · Carbs (.+?) g per serving(.*)$/, "$1 kcal · Eiweiß $2 g · Fett $3 g · Kohlenh. $4 g pro Portion$5"]
 ];
 
 // Translates one piece of text. The English original is kept on each text node so switching back works.
