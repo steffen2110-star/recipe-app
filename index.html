@@ -212,7 +212,7 @@
 <body>
 <div class="app-title">My Kitchen App</div>
 <nav id="topnav">
-  <button data-sec="recipes" onclick="tab('recipes')">Recipes</button>
+  <button data-sec="recipes" onclick="tab('recipes')">Home</button>
   <button data-sec="restaurants" onclick="tab('restaurants')">Restaurants</button>
   <button data-sec="playgrounds" onclick="tab('playgrounds')">Playgrounds</button>
   <button data-sec="profile" onclick="tab('profile')">⚙</button>
@@ -239,6 +239,7 @@ const SKEY = "shop_v1";
 const LKEY = "lastcook_v1";
 const SWKEY = "swipe_v1";
 const PRKEY = "profile_v1";
+const TOMBKEY = "tombstones_v1";
 const UPDATED_KEY = "kitchen_updated_v1";
 const CONNECTED_KEY = "drive_connected_v1";
 const DRIVE_ID_KEY = "drive_file_id_v1";
@@ -253,6 +254,8 @@ const INV_ORDER = ["freezer", "fridge", "pantry"];
 const CATS = ["Baking", "Cooking", "Salad", "Soup"];
 const CAT_LABEL = { Baking: "🍰 Baking", Cooking: "🍳 Cooking", Salad: "🥗 Salad", Soup: "🍜 Soup" };
 const DEFAULT_CAT = "Cooking";
+// Shared cuisine list for recipes and restaurants
+const CUISINES = ["Italian", "German", "French", "Spanish", "Greek", "Turkish", "Mediterranean", "Asian", "Japanese", "Chinese", "Thai", "Vietnamese", "Indian", "Mexican", "American", "Burgers", "Pizza", "Vegetarian", "Bakery & Café", "Other"];
 const PLACE_ZONES = ["FREE", "Library", "Paid"];
 const PLACE_SORTS = [["drive", "Driving time"], ["rating", "Rating"], ["visits", "Most visited"], ["last", "Last visited"]];
 const HH_DAYS = [[1, "Mon"], [2, "Tue"], [3, "Wed"], [4, "Thu"], [5, "Fri"], [6, "Sat"], [0, "Sun"]];
@@ -360,6 +363,8 @@ let shop = JSON.parse(localStorage.getItem(SKEY) || '{"checked":{},"manual":[]}'
 let lastCook = JSON.parse(localStorage.getItem(LKEY) || "null");
 let swipe = JSON.parse(localStorage.getItem(SWKEY) || '{"liked":[],"passed":[]}');
 let profile = { defaultServings: 4, allergens: [], showCalories: true, homeAddress: "", ...JSON.parse(localStorage.getItem(PRKEY) || "{}") };
+// Deleted items are remembered here, so a sync does not bring them back from another device.
+let tomb = normTomb(JSON.parse(localStorage.getItem(TOMBKEY) || "null"));
 let tabName = "recipes";
 let invTab = "fridge";
 let recipeCat = DEFAULT_CAT;
@@ -394,6 +399,21 @@ function changed() {
   localStorage.setItem(UPDATED_KEY, String(Date.now()));
   localDirty = true;
   scheduleSync();
+}
+
+// Records that an item was deleted, so the deletion survives sync.
+function markDeleted(kind, id) {
+  tomb[kind] = tomb[kind] || {};
+  tomb[kind][id] = Date.now();
+  localStorage.setItem(TOMBKEY, JSON.stringify(tomb));
+}
+
+function normTomb(t) {
+  return {
+    recipes: { ...((t && t.recipes) || {}) },
+    places: { ...((t && t.places) || {}) },
+    plan: { ...((t && t.plan) || {}) }
+  };
 }
 
 // ---- Helpers ----
@@ -531,6 +551,15 @@ function cardWithPic(photo, inner) {
   return `<div class="cardrow"><div class="cardtext">${inner}</div><div class="cardpic"><img src="${photo}" alt=""></div></div>`;
 }
 
+// Cuisine dropdown, shared by recipes and restaurants. Keeps an older custom value if one exists.
+function cuisineSelect(current, id) {
+  const cur = current || "";
+  const list = CUISINES.slice();
+  if (cur && !list.includes(cur)) list.unshift(cur);
+  return `<select id="${id}"><option value="">— None —</option>${list.map(c =>
+    `<option value="${esc(c)}" ${c === cur ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>`;
+}
+
 // ---- Temperatures ----
 // Adds the other unit in brackets: "165 °C" becomes "165 °C (329 °F)". Stored text is not changed.
 function tempText(s) {
@@ -554,6 +583,9 @@ function isConnected() { return !!localStorage.getItem(CONNECTED_KEY); }
 function localUpdated() { return Number(localStorage.getItem(UPDATED_KEY) || 0); }
 function hasLocalData() { return recipes.length || inventory.length || plan.length || places.length; }
 function timeNow() { return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+function countsText() {
+  return `${recipes.length} recipes · ${placesOf("restaurant").length} restaurants · ${placesOf("playground").length} playgrounds`;
+}
 
 function setSyncStatus(msg, isErr) {
   const el = document.getElementById("sync");
@@ -675,9 +707,10 @@ async function uploadSnapshot(snap) {
 }
 
 function snapshot() {
-  return { version: 6, updatedAt: localUpdated(), recipes, inventory, plan, places, shop, swipe, profile };
+  return { version: 7, updatedAt: localUpdated(), recipes, inventory, plan, places, shop, swipe, profile, tomb };
 }
 
+// Replaces everything on this device with the given copy (used by "Replace this device" and the shared kitchen).
 function applySnapshot(s) {
   recipes = s.recipes || [];
   inventory = s.inventory || [];
@@ -686,6 +719,13 @@ function applySnapshot(s) {
   shop = s.shop || { checked: {}, manual: [] };
   swipe = s.swipe || { liked: [], passed: [] };
   profile = { defaultServings: 4, allergens: [], showCalories: true, homeAddress: "", ...(s.profile || {}) };
+  tomb = normTomb(s.tomb);
+  persistAll();
+  localStorage.setItem(TOMBKEY, JSON.stringify(tomb));
+  localStorage.setItem(UPDATED_KEY, String(s.updatedAt || 0));
+}
+
+function persistAll() {
   localStorage.setItem(RKEY, JSON.stringify(recipes));
   localStorage.setItem(IKEY, JSON.stringify(inventory));
   localStorage.setItem(PKEY, JSON.stringify(plan));
@@ -693,7 +733,46 @@ function applySnapshot(s) {
   localStorage.setItem(SKEY, JSON.stringify(shop));
   localStorage.setItem(SWKEY, JSON.stringify(swipe));
   localStorage.setItem(PRKEY, JSON.stringify(profile));
-  localStorage.setItem(UPDATED_KEY, String(s.updatedAt || 0));
+}
+
+// Combines two lists by id. The copy from the newer side wins; deleted ids are dropped.
+function mergeLists(localArr, remoteArr, localNewer, deadIds) {
+  const primary = localNewer ? localArr : remoteArr;
+  const secondary = localNewer ? remoteArr : localArr;
+  const m = new Map();
+  for (const x of secondary) m.set(x.id, x);
+  for (const x of primary) m.set(x.id, x);
+  return [...m.values()].filter(x => !deadIds.has(x.id));
+}
+
+// Merges the Drive copy into this device without losing anything from either side.
+function mergeRemote(s) {
+  const remoteUpdated = Number(s.updatedAt || 0);
+  const localNewer = localUpdated() >= remoteUpdated;
+  const rt = normTomb(s.tomb);
+  tomb = {
+    recipes: { ...rt.recipes, ...tomb.recipes },
+    places: { ...rt.places, ...tomb.places },
+    plan: { ...rt.plan, ...tomb.plan }
+  };
+  localStorage.setItem(TOMBKEY, JSON.stringify(tomb));
+
+  recipes = mergeLists(recipes, s.recipes || [], localNewer, new Set(Object.keys(tomb.recipes)));
+  places = mergeLists(places, s.places || [], localNewer, new Set(Object.keys(tomb.places)));
+  plan = mergeLists(plan, s.plan || [], localNewer, new Set(Object.keys(tomb.plan)));
+  inventory = mergeLists(inventory, s.inventory || [], localNewer, new Set());
+  if (!localNewer) {
+    shop = s.shop || shop;
+    swipe = s.swipe || swipe;
+    profile = { defaultServings: 4, allergens: [], showCalories: true, homeAddress: "", ...(s.profile || {}), ...(localNewer ? {} : {}) };
+  }
+  // Remove plan entries and swipe choices that point to recipes or places that no longer exist.
+  plan = plan.filter(e => e.recipeId ? recipes.some(r => r.id === e.recipeId) : places.some(p => p.id === e.placeId));
+  swipe.liked = (swipe.liked || []).filter(id => recipes.some(r => r.id === id));
+  swipe.passed = (swipe.passed || []).filter(id => recipes.some(r => r.id === id));
+
+  persistAll();
+  localStorage.setItem(UPDATED_KEY, String(Math.max(localUpdated(), remoteUpdated)));
 }
 
 async function syncNow() {
@@ -703,28 +782,35 @@ async function syncNow() {
   setSyncStatus("Syncing…");
   try {
     if (!localUpdated() && hasLocalData()) localStorage.setItem(UPDATED_KEY, String(Date.now()));
-
+    const before = JSON.stringify([recipes, inventory, plan, places]);
     const remote = await downloadSnapshot();
-    const remoteNewer = remote && (remote.updatedAt || 0) > localUpdated();
-    const emptyHere = localUpdated() === 0 && !hasLocalData();
-
-    if (remote && (remoteNewer || emptyHere)) {
-      applySnapshot(remote);
-      localDirty = false;
-      render();
-      setSyncStatus("✓ Updated from Google Drive at " + timeNow());
-    } else if (localDirty || !remote) {
-      await uploadSnapshot(snapshot());
-      localDirty = false;
-      setSyncStatus("✓ Saved to Google Drive at " + timeNow());
-    } else {
-      setSyncStatus("✓ Up to date with Google Drive at " + timeNow());
-    }
+    if (remote) mergeRemote(remote);
+    const changedHere = before !== JSON.stringify([recipes, inventory, plan, places]);
+    await uploadSnapshot(snapshot());
+    localDirty = false;
+    if (changedHere) render();
+    setSyncStatus("✓ Synced with Google Drive at " + timeNow() + " · " + countsText());
   } catch (e) {
     setSyncStatus("Sync problem: " + e.message + ". Your data is still saved on this device.", true);
   } finally {
     syncBusy = false;
     if (syncQueued) { syncQueued = false; syncNow(); }
+  }
+}
+
+// Replaces this device's data with the Drive copy (manual recovery).
+async function pullFromDrive() {
+  if (!isConnected()) return alert("Connect Google Drive first.");
+  if (!confirm("Replace the data on this device with the copy in Google Drive? Anything only on this device will be lost.")) return;
+  try {
+    const remote = await downloadSnapshot();
+    if (!remote) return alert("No kitchen file was found in Google Drive.");
+    applySnapshot(remote);
+    localDirty = false;
+    render();
+    alert("Loaded from Google Drive: " + countsText());
+  } catch (e) {
+    alert("Could not load from Drive: " + e.message);
   }
 }
 
@@ -830,7 +916,7 @@ function familyHtml() {
     const nut = n && !(n.kcal === 0 && n.missing === r.ingredients.length)
       ? `<p>Per serving: ${Math.round(n.kcal)} kcal · Protein ${round1(n.protein)} g · Fat ${round1(n.fat)} g · Carbohydrates ${round1(n.carbs)} g (estimate)</p>` : "";
     return `<h2>${esc(r.title)}</h2>
-    <p>${esc(catOf(r))} · Serves ${r.servings} · Active ${r.activeMin} min · Total ${r.totalMin} min${r.rating ? " · Rating " + r.rating + "/5" : ""}</p>
+    <p>${esc(catOf(r))}${r.cuisine ? " · " + esc(r.cuisine) : ""} · Serves ${r.servings} · Active ${r.activeMin} min · Total ${r.totalMin} min${r.rating ? " · Rating " + r.rating + "/5" : ""}</p>
     ${nut}
     <h3>Ingredients</h3><ul>${r.ingredients.map(i => `<li>${esc(i)}</li>`).join("")}</ul>
     <h3>Steps</h3><ol>${r.steps.map(s => `<li>${esc(tempText(s))}</li>`).join("")}</ol>`;
@@ -1053,7 +1139,7 @@ function recipeDocBody(r, f) {
   const srv = fmt(r.servings * f);
   const found = recipeAllergens(r).map(a => a.label);
   return `<h1>${esc(r.title)}</h1>
-    <p>${esc(catOf(r))} · Serves ${srv} · Active ${r.activeMin} min · Total ${r.totalMin} min</p>
+    <p>${esc(catOf(r))}${r.cuisine ? " · " + esc(r.cuisine) : ""} · Serves ${srv} · Active ${r.activeMin} min · Total ${r.totalMin} min</p>
     ${found.length ? `<p><b>Contains:</b> ${esc(found.join(", "))}</p>` : ""}
     <h2>Ingredients</h2>
     <ul>${r.ingredients.map(i => `<li>${esc(scaleLine(i, f))}</li>`).join("")}</ul>
@@ -1197,7 +1283,7 @@ function setRecipeCat(c) {
   render();
 }
 
-// Sub-tabs shown inside the Recipes section.
+// Sub-tabs shown inside the Home section.
 function sectionNav() {
   const items = [["recipes", "Recipes"], ["inventory", "Inventory"], ["swipe", "Swipe"], ["plan", "Plan"]];
   return `<div class="subnav">${items.map(([t, l]) =>
@@ -1252,6 +1338,10 @@ function profileView() {
     <h3>Nutrition</h3>
     <label class="check"><input type="checkbox" id="pCal" ${profile.showCalories ? "checked" : ""}>Show nutrition estimates</label>
     <p class="small">Calories, protein, fat and carbohydrates per serving. Estimates use a built-in list of common ingredients. Unlisted ingredients are not counted.</p>
+    <h3>Sync check</h3>
+    <p class="small">This device: ${recipes.length} recipes · ${placesOf("restaurant").length} restaurants · ${placesOf("playground").length} playgrounds</p>
+    <button onclick="syncNow()">Sync now</button>
+    <button onclick="pullFromDrive()">Replace this device from Drive</button>
     <h3>Shared kitchen</h3>
     <p class="small">For Olga: opens the kitchen file you shared with her, so you both use the same recipes and inventory.</p>
     <button onclick="openSharedPicker()">Open shared kitchen</button>
@@ -1540,7 +1630,7 @@ function placeForm(kind, id) {
   const dayChecks = HH_DAYS.map(([v, l]) =>
     `<label class="check" style="display:inline-block;margin-right:10px"><input type="checkbox" class="hhday" value="${v}" ${(p.hhDays || []).includes(v) ? "checked" : ""}> ${l}</label>`).join("");
   const fields = isR
-    ? `<label>Cuisine (optional) <input id="pc" value="${esc(p.cuisine || "")}" placeholder="e.g. Italian"></label>
+    ? `<label>Cuisine (optional) ${cuisineSelect(p.cuisine, "pc")}</label>
        <label class="check"><input type="checkbox" id="phh" ${p.happyHour ? "checked" : ""} onchange="document.getElementById('hhbox').style.display=this.checked?'block':'none'"> Good Happy Hour 🍸</label>
        <div id="hhbox" style="display:${p.happyHour ? "block" : "none"}">
          <label>Happy Hour days</label>${dayChecks}
@@ -1628,7 +1718,7 @@ function savePlace(kind, id) {
     photos: pDraftPhotos.slice(0, MAX_PLACE_PHOTOS)
   };
   if (kind === "restaurant") {
-    data.cuisine = document.getElementById("pc").value.trim();
+    data.cuisine = document.getElementById("pc").value;
     data.happyHour = document.getElementById("phh").checked;
     data.hhDays = [...document.querySelectorAll(".hhday:checked")].map(x => +x.value);
     data.hhFrom = document.getElementById("hhf").value;
@@ -1653,6 +1743,7 @@ function savePlace(kind, id) {
 
 function deletePlace(id) {
   if (!confirm("Delete this place?")) return;
+  markDeleted("places", id);
   places = places.filter(p => p.id !== id);
   plan = plan.filter(e => e.placeId !== id);
   savePlaces();
@@ -1717,7 +1808,7 @@ function pickResult() {
     const r = recipes.find(y => y.id === x.id);
     if (!r) return "";
     const inner = `<div class="head"><b>🎲 ${esc(r.title)}</b>${starsInline(r.rating)}</div>
-      <div class="small">${esc(CAT_LABEL[catOf(r)])} · Active ${r.activeMin} min</div>
+      <div class="small">${esc(CAT_LABEL[catOf(r)])}${r.cuisine ? " · " + esc(r.cuisine) : ""} · Active ${r.activeMin} min</div>
       <button class="mini" onclick="openRecipe('${r.id}')">Open</button>
       <button class="mini" onclick="pickNow('recipes')">Pick another</button>`;
     return `<div class="card" style="margin-bottom:0">${cardWithPic(r.photo, inner)}</div>`;
@@ -1793,7 +1884,7 @@ function listView() {
   if (!shown.length) h += `<p>No ${cap(recipeCat.toLowerCase())} recipes yet.</p>`;
   for (const r of shown) {
     const inner = `<div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
-      <div class="small">Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
+      <div class="small">${r.cuisine ? esc(r.cuisine) + " · " : ""}Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
       <div class="small">Cooked ${r.cookCount || 0}×</div>
       ${nutriLine(r)}
       ${allergenBadge(r)}
@@ -1843,6 +1934,7 @@ function formView() {
     <input type="file" id="galInput" accept="image/*" style="display:none" onchange="pickPhoto(this)">
     <input id="t" placeholder="Title" value="${esc(d.title)}">
     <label>Category <select id="cat">${CATS.map(c => `<option value="${c}" ${c === catNow ? "selected" : ""}>${CAT_LABEL[c]}</option>`).join("")}</select></label>
+    <label>Cuisine ${cuisineSelect(d.cuisine, "cuisine")}</label>
     <label>Serves <input id="s" type="number" value="${d.servings}" min="1"></label>
     <label>Active minutes <input id="a" type="number" min="0" value="${d.activeMin}"></label>
     <label>Total minutes <input id="tot" type="number" min="0" value="${d.totalMin}"></label>
@@ -1861,6 +1953,7 @@ function saveRecipe() {
   const data = {
     title,
     category: normCat(document.getElementById("cat").value),
+    cuisine: document.getElementById("cuisine").value,
     servings: +document.getElementById("s").value || profile.defaultServings,
     activeMin: +document.getElementById("a").value || 0,
     totalMin: +document.getElementById("tot").value || 0,
@@ -1893,7 +1986,7 @@ function showView(id) {
     ${r.photo ? `<img class="photo" src="${r.photo}" alt="">` : ""}
     ${allergenBadge(r)}
     ${hasAllergens ? `<div class="small">Based on ingredient names. Always read labels.</div>` : ""}
-    <div class="small">${esc(CAT_LABEL[catOf(r)])} · Active ${r.activeMin} min · Total ${r.totalMin} min</div>
+    <div class="small">${esc(CAT_LABEL[catOf(r)])}${r.cuisine ? " · " + esc(r.cuisine) : ""} · Active ${r.activeMin} min · Total ${r.totalMin} min</div>
     <div class="small">Cooked ${r.cookCount || 0}×</div>
     ${nutriBlock(r)}
     ${ratingBar(r)}
@@ -1912,6 +2005,7 @@ function showView(id) {
 
 function deleteRecipe(id) {
   if (!confirm("Delete this recipe?")) return;
+  markDeleted("recipes", id);
   recipes = recipes.filter(r => r.id !== id);
   plan = plan.filter(e => e.recipeId !== id);
   swipe.liked = swipe.liked.filter(x => x !== id);
@@ -2014,7 +2108,7 @@ function swipeView() {
     <div id="card" class="swipe-card">
       ${r.photo ? `<img class="photo" src="${r.photo}" alt="">` : ""}
       <div class="head"><b>${esc(r.title)}</b>${starsInline(r.rating)}</div>
-      <div class="small">${esc(CAT_LABEL[catOf(r)])} · Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
+      <div class="small">${esc(CAT_LABEL[catOf(r)])}${r.cuisine ? " · " + esc(r.cuisine) : ""} · Active ${r.activeMin} min · Total ${r.totalMin} min · Serves ${r.servings}</div>
       <div class="small">Cooked ${r.cookCount || 0}×</div>
       ${nutriLine(r)}
       ${allergenBadge(r)}
@@ -2310,6 +2404,7 @@ function bulkRecipeRows(rows) {
       data: {
         title,
         category: normCat(r.category),
+        cuisine: (r.cuisine || "").trim(),
         servings: +r.servings || profile.defaultServings,
         activeMin: +r.active_min || 0,
         totalMin: +r.total_min || 0,
@@ -2342,6 +2437,7 @@ async function readBulk(input) {
       rows = data.map(x => kind === "recipes" ? {
         title: x.title,
         category: x.category,
+        cuisine: x.cuisine,
         servings: x.servings,
         active_min: x.activeMin ?? x.active_min,
         total_min: x.totalMin ?? x.total_min,
@@ -2376,7 +2472,7 @@ function bulkView() {
     h += `<div class="card ${it.err.length ? "warn" : ""}">
       <b>${esc(title || "(no title)")}</b>
       ${kind === "recipes"
-        ? `<div class="small">${esc(d.category)} · Serves ${d.servings} · ${d.ingredients.length} ingredients · ${d.steps.length} steps</div>`
+        ? `<div class="small">${esc(d.category)}${d.cuisine ? " · " + esc(d.cuisine) : ""} · Serves ${d.servings} · ${d.ingredients.length} ingredients · ${d.steps.length} steps</div>`
         : `<div class="small">${d.expiry ? "Exp. " + esc(fmtDate(d.expiry)) : ""}${d.expirySource === "rule" ? " (estimate)" : ""}</div>`}
       ${it.err.length ? `<div class="alert">Row ${it.row}: ${esc(it.err.join("; "))}</div>` : ""}
     </div>`;
@@ -2408,7 +2504,7 @@ function cancelBulk() {
 // Downloads a CSV with the right column names and one example row.
 function downloadTemplate(kind) {
   const csv = kind === "recipes"
-    ? 'title,category,servings,active_min,total_min,ingredients,steps\n"Pancakes",Baking,4,10,25,"1 cup flour|1 egg|1 cup milk","Mix everything|Cook 2 min per side"'
+    ? 'title,category,cuisine,servings,active_min,total_min,ingredients,steps\n"Pancakes",Baking,American,4,10,25,"1 cup flour|1 egg|1 cup milk","Mix everything|Cook 2 min per side"'
     : "name,qty,unit,storage,expiry,quality\nMilk,1,gallon,fridge,,best by\nRice,500,g,pantry,2027-06-01,best by";
   const a = document.createElement("a");
   a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
@@ -2586,6 +2682,7 @@ function addPlanEntry() {
 }
 
 function removePlan(id) {
+  markDeleted("plan", id);
   plan = plan.filter(e => e.id !== id);
   savePlan();
   render();
@@ -2764,11 +2861,12 @@ function uncheckAll() {
 let lang = localStorage.getItem("lang_v1") || "en";
 
 const DE = {
-  "Recipes": "Rezepte", "Restaurants": "Restaurants", "Playgrounds": "Spielplätze",
+  "Home": "Start", "Recipes": "Rezepte", "Restaurants": "Restaurants", "Playgrounds": "Spielplätze",
   "Inventory": "Vorrat", "Swipe": "Entdecken", "Plan": "Plan",
   "Freezer": "Gefrierfach", "Fridge": "Kühlschrank", "Pantry": "Vorratsschrank",
   "🍰 Baking": "🍰 Backen", "🍳 Cooking": "🍳 Kochen", "🥗 Salad": "🥗 Salat", "🍜 Soup": "🍜 Suppe",
-  "Category": "Kategorie", "Cooking time:": "Kochzeit:", "Any time": "Beliebig",
+  "Category": "Kategorie", "Cuisine": "Küche", "— None —": "— Keine —",
+  "Cooking time:": "Kochzeit:", "Any time": "Beliebig",
   "+ Add recipe": "+ Rezept", "Import file": "Datei importieren", "Paste text": "Text einfügen",
   "What can I cook?": "Was kann ich kochen?", "Bulk upload": "Massen-Upload", "CSV template": "CSV-Vorlage",
   "🏆 Top 10": "🏆 Top 10", "🏆 Top 10 cooked": "🏆 Top 10 gekocht",
@@ -2777,13 +2875,17 @@ const DE = {
   "Max. driving time": "Max. Fahrzeit", "Min. stars": "Min. Sterne", "Sort by": "Sortieren nach",
   "Driving time": "Fahrzeit", "Most visited": "Am meisten besucht", "Last visited": "Zuletzt besucht",
   "Any": "Alle", "All": "Alle",
+  "Italian": "Italienisch", "German": "Deutsch", "French": "Französisch", "Spanish": "Spanisch", "Greek": "Griechisch",
+  "Turkish": "Türkisch", "Mediterranean": "Mediterran", "Asian": "Asiatisch", "Japanese": "Japanisch", "Chinese": "Chinesisch",
+  "Thai": "Thailändisch", "Vietnamese": "Vietnamesisch", "Indian": "Indisch", "Mexican": "Mexikanisch", "American": "Amerikanisch",
+  "Burgers": "Burger", "Pizza": "Pizza", "Vegetarian": "Vegetarisch", "Bakery & Café": "Bäckerei & Café", "Other": "Andere",
   "Nothing cooked yet. Mark a meal as cooked in the Plan tab.": "Noch nichts gekocht. Markiere eine Mahlzeit im Plan-Tab als gekocht.",
   "No recipes yet.": "Noch keine Rezepte.", "Open": "Öffnen", "Edit": "Bearbeiten", "Print": "Drucken",
   "Share file": "Datei teilen", "Edit recipe": "Rezept bearbeiten", "Delete recipe": "Rezept löschen",
   "← Back": "← Zurück", "Save": "Speichern", "Cancel": "Abbrechen", "Delete": "Löschen",
   "Rating": "Bewertung", "Ingredients": "Zutaten", "Steps": "Zubereitung", "Servings": "Portionen",
   "Title": "Titel", "Name": "Name", "Notes (optional)": "Notizen (optional)",
-  "Cuisine (optional)": "Küche (optional)", "Good Happy Hour 🍸": "Gute Happy Hour 🍸",
+  "Good Happy Hour 🍸": "Gute Happy Hour 🍸",
   "Happy Hour days": "Happy-Hour-Tage", "Happy Hour deal (one line)": "Happy-Hour-Angebot (eine Zeile)",
   "Daily": "Täglich", "Type": "Art", "Price (optional, e.g. \"€5 per visit\")": "Preis (optional, z. B. \"5 € pro Besuch\")",
   "Address (for driving time)": "Adresse (für Fahrzeit)", "Street, postcode, city": "Straße, PLZ, Ort",
@@ -2800,6 +2902,8 @@ const DE = {
   "Nutrition: not enough data to estimate": "Nährwerte: nicht genug Daten für eine Schätzung",
   "Calories, protein, fat and carbohydrates per serving. Estimates use a built-in list of common ingredients. Unlisted ingredients are not counted.":
     "Kalorien, Eiweiß, Fett und Kohlenhydrate pro Portion. Schätzungen basieren auf einer eingebauten Liste gängiger Zutaten. Nicht aufgeführte Zutaten werden nicht gezählt.",
+  "Sync check": "Sync-Prüfung", "Sync now": "Jetzt synchronisieren",
+  "Replace this device from Drive": "Dieses Gerät aus Drive ersetzen",
   "Used to calculate driving time to restaurants and playgrounds.": "Wird für die Fahrzeit zu Restaurants und Spielplätzen genutzt.",
   "Set your home address in ⚙ Settings to see driving time from home.": "Trage deine Heimatadresse unter ⚙ Einstellungen ein, um die Fahrzeit zu sehen.",
   "Set your home address in ⚙ Settings to see driving time.": "Trage deine Heimatadresse unter ⚙ Einstellungen ein, um die Fahrzeit zu sehen.",
@@ -2850,7 +2954,8 @@ const DE_PATTERNS = [
   [/^expires today$/, "läuft heute ab"],
   [/^🚗 (\d+) min from home$/, "🚗 $1 Min. von zu Hause"],
   [/^Visited (\d+)× · last (.+)$/, "Besucht $1× · zuletzt $2"],
-  [/^(\d+) kcal · Protein (.+?) g · Fat (.+?) g · Carbs (.+?) g per serving(.*)$/, "$1 kcal · Eiweiß $2 g · Fett $3 g · Kohlenh. $4 g pro Portion$5"]
+  [/^(\d+) kcal · Protein (.+?) g · Fat (.+?) g · Carbs (.+?) g per serving(.*)$/, "$1 kcal · Eiweiß $2 g · Fett $3 g · Kohlenh. $4 g pro Portion$5"],
+  [/^This device: (\d+) recipes · (\d+) restaurants · (\d+) playgrounds$/, "Dieses Gerät: $1 Rezepte · $2 Restaurants · $3 Spielplätze"]
 ];
 
 // Translates one piece of text. The English original is kept on each text node so switching back works.
